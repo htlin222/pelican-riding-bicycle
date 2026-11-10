@@ -136,7 +136,7 @@ def fog_group():
     dot=g.vmath('DOT_PRODUCT',geo.outputs['Incoming'],tuple(-SUN)).outputs['Value']
     warm=g.math('POWER',g.math('MAXIMUM',dot,0.0),6.0)
     warm2=g.math('POWER',g.math('MAXIMUM',dot,0.0),60.0)
-    col=g.mix(warm,(0.42,0.36,0.44,1),(1.0,0.50,0.24,1))
+    col=g.mix(warm,(0.52,0.40,0.40,1),(1.0,0.50,0.24,1))
     col=g.mix(warm2,col,(1.15,0.72,0.36,1))
     em=g.N('ShaderNodeEmission',{'Color':col,'Strength':ng_strength()})
     ng['em_node']=em.name

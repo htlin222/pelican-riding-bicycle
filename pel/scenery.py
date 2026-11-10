@@ -54,13 +54,14 @@ def build_grass(dense=1.0):
         cs=roadCs(x); y=roadC(x)+d*np.sqrt(1+cs*cs)
         z=terrainH(x,y); return np.stack([x,y,z],1),d
     obs=[]
-    specs=[('GrassNear',int(95000*dense),4.6,12,1.0,0.5,0.14),('GrassMid',int(50000*dense),9,40,1.5,0.6,0.22),('GrassSea',int(16000*dense),-6.1,-4.45,1.0,0.42,0.13)]
+    specs=[('GrassNear',int(110000*dense),3.72,12,1.0,0.5,0.14),('GrassMid',int(50000*dense),9,40,1.5,0.6,0.22),('GrassSea',int(26000*dense),-6.1,-3.72,1.0,0.42,0.13)]
     for i,(nm,n,dlo,dhi,pw,h,sp) in enumerate(specs):
         P,d=sample(n,dlo,dhi,power=pw)
         keep=(P[:,2]>roadZ(P[:,0])-1.2)|(d>0); P=P[keep]
         V,F,UV=tuft_geo(10+i,nblades=13 if i<2 else 10,h=h,spread=sp)
         t=mesh_obj(nm+'Tuft',V,F,uvs=UV); t.data.materials.append(gm)
-        obs.append(scatter(nm,P,rng.uniform(0.65,1.5,len(P))*(1.0 if i!=1 else 1.5),rng.uniform(0,6.28,len(P)),t))
+        d=d[keep]; sz=rng.uniform(0.65,1.5,len(P))*(1.0 if i!=1 else 1.5)*np.clip((np.abs(d)-3.6)/1.3,0.3,1.0)
+        obs.append(scatter(nm,P,sz,rng.uniform(0,6.28,len(P)),t))
     # poppies and lupine-ish blooms
     for nm,col,n in (('Poppy',srgb(0xf07a12),int(5200*dense)),('Bloom',srgb(0x7a56c8),int(2400*dense)),('Daisy',srgb(0xf2ead0),int(2600*dense))):
         P,d=sample(n,4.8,20,power=1.4)
@@ -77,7 +78,7 @@ def rock_mat():
     m,g,p=new_mat('Rock'); pos=g.N('ShaderNodeNewGeometry').outputs['Position']
     n=g.noise(pos,1.2,detail=6,rough=.65,dist=.5); v=g.N('ShaderNodeTexVoronoi',{'Vector':pos,'Scale':3.0,'Detail':2.0},feature='F1').outputs['Distance']
     lich=g.maprange(g.noise(pos,2.6,detail=4),0.58,0.68,smooth=True)
-    c=g.ramp(n,[(0.25,srgb(0x3a3430)),(0.5,srgb(0x6e6258)),(0.75,srgb(0x92826e))]); c=g.mix(g.math('MULTIPLY',lich,0.6),c,srgb(0xa9a25a))
+    c=g.ramp(n,[(0.25,srgb(0x5a5048)),(0.5,srgb(0x857868)),(0.75,srgb(0xa89a84))]); c=g.mix(g.math('MULTIPLY',lich,0.6),c,srgb(0xa9a25a))
     setp(g,p,color=c,rough=0.85,normal=g.bump(g.math('ADD',g.math('MULTIPLY',v,0.5),n),strength=0.9,dist=0.08)); return m
 def leaf_mat(name,c1,c2):
     m,g,p=new_mat(name); pos=g.N('ShaderNodeNewGeometry').outputs['Position']
@@ -104,13 +105,13 @@ def build_props(dense=1.0):
     rm=rock_mat()
     for k in range(3):
         V,F=blob(20+k,(0.5,0.42,0.36),0.38,2.2,0.035); o=mesh_obj('Rock%d'%k,V,F); o.data.materials.append(rm)
-        P1,_=place(int(90*dense),5.2,60,pw=1.3); P2,_=place(int(260*dense),-34,-6.4)
+        P1,_=place(int(40*dense),6,70,pw=1.3); P2,_=place(int(220*dense),-34,-6.4)
         P=np.vstack([P1,P2]); sz_=rng.uniform(0.2,1.0,len(P))**2.5*1.9+0.18; P[:,2]-=0.22*sz_
         obs.append(scatter('Rocks%d'%k,P,sz_,rng.uniform(0,6.28,len(P)),o))
     sm=leaf_mat('Scrub',srgb(0x2f3d18),srgb(0x5a5f26))
     for k in range(3):
         V,F=blob(40+k,(0.9,0.8,0.42),0.55,3.4,0.05,nblobs=4); o=mesh_obj('Scrub%d'%k,V,F); o.data.materials.append(sm)
-        P,d=place(int(1500*dense),11,300,pw=1.5,xhi=XJ+140)
-        cl=fbm(P[:,0]*.02+k,P[:,1]*.02,3,51); P=P[cl>0.47]; P[:,2]-=0.22
+        P,d=place(int(3200*dense),11,300,pw=1.5,xhi=XJ+140)
+        cl=fbm(P[:,0]*.02+k,P[:,1]*.02,3,51); P=P[cl>0.54]; P[:,2]-=0.22
         obs.append(scatter('Scrubs%d'%k,P,rng.uniform(0.6,1.9,len(P)),rng.uniform(0,6.28,len(P)),o))
     return obs

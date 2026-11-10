@@ -32,7 +32,7 @@ def mats():
     ang=g.math('ARCTAN2',s.outputs[2],s.outputs[0])
     knob=g.math('MULTIPLY',g.math('SINE',g.math('ADD',g.math('MULTIPLY',ang,180.0),g.math('MULTIPLY',g.math('ABSOLUTE',s.outputs[1]),900.0))),tread)
     dust=g.noise(oc,60.0,detail=4)
-    c=g.mix(tread,srgb(0x8f7450),srgb(0x121212)); c=g.mix(g.math('MULTIPLY',dust,0.25),c,srgb(0x6b5a48))
+    c=g.mix(tread,srgb(0x6e5a40),srgb(0x101010)); c=g.mix(g.math('MULTIPLY',dust,0.25),c,srgb(0x6b5a48))
     setp(g,p,color=c,rough=0.75,normal=g.bump(knob,strength=0.6,dist=0.0015),spec=0.3); M['tire']=m
     m,g,p=new_mat('Leather'); oc=g.N('ShaderNodeTexCoord').outputs['Object']; n=g.noise(oc,220.0,detail=4,rough=.7); n2=g.noise(oc,18.0,detail=3)
     setp(g,p,color=g.mix(n2,srgb(0x8a4a1c),srgb(0xb0652a)),rough=g.mixf(n2,0.38,0.55),normal=g.bump(n,strength=0.25,dist=0.001),coat=0.2,coatr=0.3); M['leather']=m
@@ -72,7 +72,7 @@ class Bike:
         obj('Saddle',sdf.mesh(d,lo,VOX,3),'leather')
         for sy in (1,-1): obj('SaddleRail',tube_mesh([(-0.30,sy*0.02,0.622),(-0.24,sy*0.02,0.612),(-0.19,sy*0.012,0.612),(-0.12,0,0.624)],0.0035,seg=6),'chrome')
         # rear fender
-        obj('FenderR',fender(AXR,math.radians(8),math.radians(200)),'cream');
+        obj('FenderR',fender(AXR,math.radians(8),math.radians(200)),'alu');
         for sy in (1,-1): obj('StayR',T(AXR+[0,sy*0.06,0],AXR+[0.287*math.cos(math.radians(160)),sy*0.03,0.287*math.sin(math.radians(160))],0.0025,6),'chrome')
         # chain + cog
         cy=-0.05; ch=[]
@@ -125,7 +125,7 @@ class Bike:
         for sy in (1,-1): gr.append(tube_mesh([bc+[-0.115,sy*0.222,0.019],bc+[-0.16,sy*0.226,0.015],bc+[-0.205,sy*0.228,0.012]],[0.0155,0.0165,0.0155],seg=12))
         obj('Grips',L(join(gr)),'leather',s.steer)
         V,F=uv_hemi(0.024); V=V+(bc+[-0.02,0.11,0.03]); obj('Bell',L((V,F)),'brass',s.steer)
-        obj('FenderF',L(fender(AXF,math.radians(45),math.radians(175))),'cream',s.steer)
+        obj('FenderF',L(fender(AXF,math.radians(45),math.radians(175))),'alu',s.steer)
         for sy in (1,-1): obj('StayF',L(T(AXF+[0,sy*0.05,0],AXF+[0.287*math.cos(math.radians(55)),sy*0.03,0.287*math.sin(math.radians(55))],0.0025,6)),'chrome',s.steer)
         # basket + fish
         bcx=np.array([0.455,0,0.70]); sx,sy_,sz=0.19,0.27,0.15
@@ -158,11 +158,11 @@ class Bike:
             o=mesh_obj(name,VF[0],VF[1]); o.data.materials.append(M[mat]); o.parent=e; return o
         obj('Tire',torus(0.252,0.018,96,14),'tire')
         V,F=torus(0.229,0.0085,72,8,sy=1.35); obj('Rim',(V,F),'alu')
-        sp=[]; N=28
+        sp=[]; N=32
         for i in range(N):
             a=i*2*np.pi/N; side=1 if i%2 else -1; off=0.85*(1 if (i//2)%2 else -1)
             h=np.array([0.02*math.cos(a+off),side*0.027,0.02*math.sin(a+off)]); r=np.array([0.224*math.cos(a),0,0.224*math.sin(a)])
-            sp.append(tube_mesh([h,r],0.0015,seg=5,cap=False))
+            sp.append(tube_mesh([h,r],0.0021,seg=5,cap=False))
         obj('Spokes',join(sp),'chrome')
         hub=[tube_mesh([(0,-0.05,0),(0,0,0),(0,0.05,0)],0.012,seg=10)]
         for sy in (1,-1): hub.append(tube_mesh([(0,sy*0.024,0),(0,sy*0.03,0)],0.024,seg=16))

@@ -16,7 +16,7 @@ def setup(w=1280,h=536,spp=48,gpu=False,mblur=True):
     vs=sc.view_settings
     try: vs.view_transform='AgX'; vs.look='AgX - Medium High Contrast'
     except Exception as e: print('view',e)
-    vs.exposure=-1.35; vs.gamma=1.0
+    vs.exposure=-1.6; vs.gamma=1.0
     if gpu:
         prefs=bpy.context.preferences.addons['cycles'].preferences
         for t in ('OPTIX','CUDA'):

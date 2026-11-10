@@ -42,7 +42,7 @@ def roadC(x):
 def roadZs(x): return (roadZ(x+.05)-roadZ(x-.05))/.1
 def roadCs(x): return (roadC(x+.05)-roadC(x-.05))/.1
 
-STACKS=[(392,-62,38,13),(430,-100,24,10),(300,-88,18,9),(150,-96,30,12),(462,-34,15,7),(60,-78,13,8),(520,-75,20,9)]
+STACKS=[(398,-70,27,14),(440,-104,19,10),(300,-88,22,11),(150,-96,31,13),(476,-52,12,8),(60,-78,14,9),(540,-80,16,9),(232,-120,11,7)]
 def terrainH(x,y):
     x=np.asarray(x,dtype=float); y=np.asarray(y,dtype=float)
     rz=roadZ(x); d=y-roadC(x)
@@ -64,7 +64,7 @@ def terrainH(x,y):
     h=np.where(d>=0,inland,seaside)
     # headland end
     inl=smooth(20,120,d); f=smooth(XJ+inl*55,XJ+5+inl*150,x)
-    endn=(fbm(x*.08,y*.08,4,19)-.5)*6*f*(1-f)*4
+    endn=-np.abs(fbm(x*.08,y*.08,4,19)-.5)*6*f*(1-f)*4
     h=h+(floor-h)*f+endn
     # sea stacks
     for (sx,sy,sh,sr) in STACKS:

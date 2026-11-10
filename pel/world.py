@@ -11,7 +11,7 @@ def build_sky():
     sky=g.N('ShaderNodeTexSky',sky_type='MULTIPLE_SCATTERING')
     sky.sun_elevation=SUN_EL; sky.sun_rotation=math.pi/2-SUN_AZ
     import os
-    sky.sun_disc=True; sky.sun_size=math.radians(2.6); sky.sun_intensity=float(os.environ.get('SUNI',0.6))
+    sky.sun_disc=True; sky.sun_size=math.radians(2.6); sky.sun_intensity=float(os.environ.get('SUNI',0.22))
     sky.altitude=30; sky.air_density=float(os.environ.get('AIR',1.8)); sky.aerosol_density=float(os.environ.get('AERO',4.0)); sky.ozone_density=float(os.environ.get('OZ',2.5))
     tc=g.N('ShaderNodeTexCoord'); d=tc.outputs['Generated']
     xyz=g.N('ShaderNodeSeparateXYZ',{0:d}); dz=xyz.outputs[2]
@@ -22,24 +22,26 @@ def build_sky():
     p2=g.vmath('ADD',p,drift).outputs[0]
     # layer 1: altocumulus puffs
     n1=g.noise(p2,0.55,detail=8,rough=.6,dist=.12)
-    c1=g.maprange(n1,0.46,0.68,smooth=True)
+    patch_=g.maprange(g.noise(p2,0.085,detail=3,rough=.5),0.38,0.62,smooth=True)
+    c1=g.math('MULTIPLY',g.maprange(n1,0.44,0.68,smooth=True),patch_)
     # layer 2: stretched cirrus
-    st=g.N('ShaderNodeMapping',{'Vector':p2,'Scale':(0.10,0.55,1),'Rotation':(0,0,0.5)}).outputs[0]
+    st=g.N('ShaderNodeMapping',{'Vector':p2,'Scale':(0.20,0.50,1),'Rotation':(0,0,0.5)}).outputs[0]
     n2=g.noise(st,1.0,detail=7,rough=.66,dist=.25)
-    c2=g.math('MULTIPLY',g.maprange(n2,0.47,0.76,smooth=True),0.7)
+    c2=g.math('MULTIPLY',g.maprange(n2,0.50,0.80,smooth=True),0.5)
     dens=g.math('MAXIMUM',c1,c2)
     hor=g.maprange(dz,0.012,0.09,smooth=True)
     dens=g.math('MULTIPLY',dens,hor)
     # low cloud bank hugging the horizon (spherical mapping so it never smears)
     az=g.math('ARCTAN2',xyz.outputs[1],xyz.outputs[0])
-    bv=g.N('ShaderNodeCombineXYZ',{0:g.math('MULTIPLY',az,7.0),1:g.math('MULTIPLY',dz,46.0),2:g.math('MULTIPLY',tv,0.002)}).outputs[0]
+    hl=g.math('SQRT',g.math('ADD',g.math('MULTIPLY',xyz.outputs[0],xyz.outputs[0]),g.math('MULTIPLY',xyz.outputs[1],xyz.outputs[1])))
+    bv=g.N('ShaderNodeCombineXYZ',{0:g.math('MULTIPLY',g.math('DIVIDE',xyz.outputs[0],hl),6.0),1:g.math('MULTIPLY',g.math('DIVIDE',xyz.outputs[1],hl),6.0),2:g.math('MULTIPLY',dz,44.0)}).outputs[0]
     nb=g.noise(bv,1.0,detail=6,rough=.6,dist=.1)
     bank=g.math('MULTIPLY',g.maprange(nb,0.50,0.66,smooth=True),g.math('MULTIPLY',g.maprange(dz,0.004,0.02,smooth=True),g.math('SUBTRACT',1.0,g.maprange(dz,0.05,0.13,smooth=True))))
     dens=g.math('MAXIMUM',dens,g.math('MULTIPLY',bank,0.95))
     sdot=g.vmath('DOT_PRODUCT',g.vmath('NORMALIZE',d).outputs[0],tuple(SUN)).outputs['Value']
     near=g.math('POWER',g.math('MAXIMUM',sdot,0.0),3.0)
     near2=g.math('POWER',g.math('MAXIMUM',sdot,0.0),24.0)
-    lit=g.mix(near,(0.85,0.36,0.34,1),(1.6,0.62,0.26,1))
+    lit=g.mix(near,(1.0,0.46,0.34,1),(1.6,0.62,0.26,1))
     lit=g.mix(near2,lit,(3.2,1.9,0.9,1))
     shade=g.mix(near,(0.13,0.11,0.2,1),(0.42,0.2,0.2,1))
     # fake self shadowing: thicker parts darker, edges lit
@@ -48,7 +50,8 @@ def build_sky():
     CL=g.N('ShaderNodeValue'); CL.name='CLOUD_GAIN'; CL.outputs[0].default_value=1.0
     ccol=g.vmath('SCALE',ccol,scale=CL.outputs[0]).outputs[0]
     au=g.math('ADD',g.math('MULTIPLY',g.math('POWER',g.math('MAXIMUM',sdot,0.0),900.0),5.0),g.math('MULTIPLY',g.math('POWER',g.math('MAXIMUM',sdot,0.0),90.0),1.1))
-    skyc=g.vmath('ADD',sky.outputs[0],g.vmath('SCALE',(1.0,0.42,0.12),scale=au).outputs[0]).outputs[0]
+    skyw=g.vmath('MULTIPLY',sky.outputs[0],(1.12,0.95,0.84)).outputs[0]
+    skyc=g.vmath('ADD',skyw,g.vmath('SCALE',(1.0,0.42,0.12),scale=au).outputs[0]).outputs[0]
     # limb darkening on the sun disc
     r2=g.math('DIVIDE',g.math('MULTIPLY',g.math('SUBTRACT',1.0,sdot),2.0),(math.radians(2.6)/2)**2)
     limb=g.math('POWER',g.math('MAXIMUM',g.math('SUBTRACT',1.0,r2),0.0),0.35)
@@ -58,12 +61,12 @@ def build_sky():
     col=g.mix(g.math('MULTIPLY',dens,0.9),skyc,ccol)
     # horizon haze, same colour as the distance fog on sea and land
     hw=g.math('POWER',g.math('MAXIMUM',sdot,0.0),6.0); hw2=g.math('POWER',g.math('MAXIMUM',sdot,0.0),60.0)
-    hz=g.mix(hw,(0.42,0.36,0.44,1),(1.0,0.50,0.24,1)); hz=g.mix(hw2,hz,(1.15,0.72,0.36,1))
+    hz=g.mix(hw,(0.52,0.40,0.40,1),(1.0,0.50,0.24,1)); hz=g.mix(hw2,hz,(1.15,0.72,0.36,1))
     hz=g.vmath('SCALE',hz,scale=0.8).outputs[0]
     col=g.mix(g.math('MULTIPLY',g.math('SUBTRACT',1.0,g.maprange(dz,-0.002,0.028,smooth=True)),g.math('SUBTRACT',1.0,g.math('MULTIPLY',indisc,0.85))),col,hz)
     bg=g.N('ShaderNodeBackground',{'Color':col,'Strength':float(os.environ.get('BG',1.0))}); bg.name='BG'
     g.link(bg.outputs[0],out.inputs['Surface'])
-    ld=bpy.data.lights.new('SunL','SUN'); ld.energy=float(os.environ.get('LAMP',5.5)); ld.color=(1.0,0.56,0.30); ld.angle=math.radians(2.6)
+    ld=bpy.data.lights.new('SunL','SUN'); ld.energy=float(os.environ.get('LAMP',8.0)); ld.color=(1.0,0.56,0.30); ld.angle=math.radians(1.5)
     lo=bpy.data.objects.new('SunL',ld); sc.collection.objects.link(lo)
     from mathutils import Vector
     ke=math.radians(8.5); kd=Vector((math.cos(ke)*math.cos(SUN_AZ),math.cos(ke)*math.sin(SUN_AZ),math.sin(ke)))
@@ -88,7 +91,7 @@ def ground_material():
     col=g.mix(slope,rock,g.mix(g.maprange(mid,0.62,0.74,smooth=True),grassc,dirt))
     wet=g.maprange(hz,0.2,3.5,smooth=True)
     col=g.mix(wet,g.vmath('SCALE',col,scale=0.35).outputs[0],col)
-    foam=g.math('MULTIPLY',g.math('SUBTRACT',1.0,g.maprange(hz,0.25,1.1+0.0,smooth=True)),g.maprange(g.noise(pos,1.3,detail=5,rough=.7),0.3,0.6))
+    foam=g.math('MULTIPLY',g.math('SUBTRACT',1.0,g.maprange(g.math('ADD',hz,g.math('MULTIPLY',g.noise(pos,0.5,detail=4),-1.0)),-0.25,0.35,smooth=True)),g.maprange(g.noise(pos,2.4,detail=5,rough=.75),0.42,0.6))
     col=g.mix(foam,col,(0.82,0.84,0.84,1))
     rb=g.N('ShaderNodeTexVoronoi',{'Vector':pos,'Scale':0.9,'Detail':3.0},feature='F1',distance='EUCLIDEAN').outputs['Distance']
     h=g.math('ADD',g.math('MULTIPLY',g.mixf(slope,rb,mid),g.mixf(slope,0.55,0.08)),g.math('MULTIPLY',fine,0.02))

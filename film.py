@@ -46,7 +46,7 @@ class Film:
         else:
             u=w-WJ; z=flightZ(u); dz=(flightZ(u+0.02)-z)/0.02
             org=Vector((x,LANE,z+0.02)); fwd=Vector((V,0,dz*0.85)).normalized()
-            lean=0.10*math.sin(u*0.9)*smooth(0.2,1.5,u); steer=0.0
+            lean=0.10*math.sin(u*0.9)*smooth(0.2,1.5,u)+0.42*math.sin((w-47.2)*0.75)*smooth(47.2,47.7,w)*(1-smooth(52.0,52.6,w)); steer=0.0
             spin=arclen(XJ)/bike.RW+(x-XJ)/bike.RW*max(0.35,1-0.2*u)
         left=Vector((0,0,1)).cross(fwd).normalized(); up=fwd.cross(left).normalized()
         M=Matrix((fwd,left,up)).transposed().to_4x4()@Matrix.Rotation(-lean,4,'X'); M.translation=org
@@ -69,8 +69,8 @@ class Film:
             u=(t-21)/9; i=3; pos=P+F*(5.8-4.1*u)-L*(0.75-0.55*u); pos.z=road_z(pos)+0.28+0.32*u
             look=P+Z*1.05; fov=37; fstop=2.8
         elif t<39:
-            u=(t-30)/9; i=4; a=R_(158-183*u); r=4.9-1.0*u; pos=P+F*(math.cos(a)*r)+L*(math.sin(a)*r)+Z*(0.85+1.5*u)
-            look=P+Z*0.95+F*0.15; fov=36; fstop=2.8; expo=0.3
+            u=(t-30)/9; i=4; a=R_(262-170*u); r=4.9-0.8*u; pos=P+F*(math.cos(a)*r)+L*(math.sin(a)*r)+Z*(1.0+1.1*math.sin(math.pi*u))
+            look=P+Z*1.15+F*0.3; fov=36; fstop=2.8; expo=0.1
         elif t<44:
             u=(t-39)/5; i=5; pos=P-F*(4.3-1.4*u)+L*0.55+Z*(1.35-0.5*u); look=P+F*4+Z*1.45; fov=54; fstop=4
             pos.z+=0.012*math.sin(t*37)+0.008*math.sin(t*23); look.z+=0.02*math.sin(t*29); roll=0.004*math.sin(t*17)
@@ -79,9 +79,9 @@ class Film:
             d=(look-pos).length; fov=float(clamp(math.degrees(2*math.atan(1.5/d)),6.5,40)); fstop=4; expo=0.15
         elif t<59.5:
             u=(t-52)/7.5; i=7; D=38.0; SH=Vector((SUN[0],SUN[1],0)).normalized(); PP=Vector((-SH.y,SH.x,0)); tanE=SUN[2]/math.hypot(SUN[0],SUN[1])
-            look=P+Z*0.95; pos=look-SH*D-Z*(D*tanE)+PP*(-0.8+1.6*u)+Z*(0.2-0.4*u); fov=4.9; fstop=11; expo=-2.7
+            look=P+Z*0.95; pos=look-SH*D-Z*(D*tanE)+PP*(-0.8+1.6*u)+Z*(0.2-0.4*u); fov=4.9; fstop=11; expo=-1.5
         else:
-            u=(t-59.5)/6.5; i=8; e=s.end0; pos=e['org']-e['F']*5.0+e['L']*1.1+Z*0.55; look=P+Z*0.7; fov=30-8*u; fstop=5.6; expo=-0.5
+            u=(t-59.5)/6.5; i=8; e=s.end0; pos=e['org']-e['F']*5.5+e['L']*0.9+Z*2.6; look=P+Z*1.6+e['F']*2; fov=30-8*u; fstop=5.6; expo=-0.45
         g=max(float(terrainH(pos.x,pos.y)),0.0)+0.25
         if pos.z<g: pos.z=g
         return i,pos,look,fov,roll,fstop,expo
@@ -93,7 +93,7 @@ class Film:
         ped,ph=s.bike.pose(rs['spin'],rs['steer']); s.pel.pose_legs(ped,ph)
         f=rs['spread']; om=4.2
         flap=0.16+0.52*math.sin(om*w); flex=(0.5+0.5*math.cos(om*w))*0.9
-        s.pel.pose_wings(f,flap*f,flex*f)
+        s.pel.pose_wings(f,flap*f,flex*f); s.pel.pose_neck(float(smooth(WJ+0.35,WJ+1.7,w)))
         s.pel.bird.location=Vector(bike.SADDLE)+Vector((0,0,0.004*math.sin(2*ph)-0.03*f*math.sin(om*w-0.6)))
         s.pel.pose_scarf(w,1.0,lift=0.25*f)
         for n in s.time_nodes: n.outputs[0].default_value=t
@@ -103,10 +103,11 @@ class Film:
             for b in s.flock:
                 r=b['rank']; sd=b['side']
                 a=Vector((P.x+10-r*1.7,-27+sd*r*1.4,cz+r*0.2)); c=Vector((P.x+2.0+r*2.6,LANE+sd*(1.6+r*2.3),P.z+0.35+r*0.5-0.3*sd))
-                p=a.lerp(c,gj); p.z+=0.2*math.sin(w*1.3+b['ph'])
-                roll=0.08*math.sin(w*0.8+b['ph'])
+                jx=math.sin(b['ph']*7.1)*1.4; jy=math.sin(b['ph']*3.3)*0.9; jz=math.sin(b['ph']*5.7)*0.7
+                p=a.lerp(c,gj)+Vector((jx,jy,jz)); p.z+=0.35*math.sin(w*(1.1+0.2*math.sin(b['ph']))+b['ph'])
+                roll=0.16*math.sin(w*0.7+b['ph']*2.3)+0.1*math.sin(b['ph']*4)
                 b['e'].matrix_world=Matrix.Translation(p)@Matrix.Rotation(roll,4,'X')
-                fl=0.08+0.42*math.sin(om*0.9*w+b['ph']); fx=(0.5+0.5*math.cos(om*0.9*w+b['ph']))*0.9
+                ob_=om*(0.82+0.07*((b['rank']*3+b['side'])%5)); fl=0.10+0.46*math.sin(ob_*w+b['ph']*1.9); fx=(0.5+0.5*math.cos(ob_*w+b['ph']*1.9))*0.9
                 b['p'].pose_wings(1.0,fl,fx)
         i,pos,look,fov,roll,fstop,expo=s.shot(t,rs)
         render.aim(s.cam,pos,look,fov,roll)

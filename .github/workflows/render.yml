@@ -53,3 +53,49 @@ jobs:
           git config user.name "render-bot" && git config user.email "render-bot@users.noreply.github.com"
           git add -A && git commit -q -m "${{ matrix.job.tag }} ${{ matrix.job.id }}"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:refs/heads/out/${{ matrix.job.tag }}/${{ matrix.job.id }}
+  release:
+    needs: [plan, render]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-noto-cjk fonts-noto-cjk-extra jq
+      - name: collect results
+        run: |
+          TAG=$(jq -r .tag render.json); MODE=$(jq -r .mode render.json)
+          echo "TAG=$TAG" >> $GITHUB_ENV; echo "MODE=$MODE" >> $GITHUB_ENV
+          mkdir -p res rel
+          git fetch -q --depth 1 origin "refs/heads/out/$TAG/*:refs/remotes/o/*"
+          for r in $(git for-each-ref --format='%(refname)' refs/remotes/o/); do git archive $r | tar -x -C res; done
+          ls res | head -100
+      - name: stills -> graded frames and contact sheet
+        if: env.MODE == 'stills'
+        run: |
+          for f in res/s_*.jpg; do sh post.sh $f rel/graded_$(basename $f); done
+          ffmpeg -y -loglevel error -pattern_type glob -i 'rel/graded_s_*.jpg' -vf "scale=960:-1,tile=2x8:padding=6" -frames:v 1 -q:v 3 rel/contact_sheet.jpg
+      - name: film -> grade, titles, score
+        if: env.MODE != 'stills'
+        run: |
+          ls res/c*.mp4 | sort | sed "s/^/file '/;s/$/'/" > list.txt
+          ffmpeg -y -loglevel error -f concat -safe 0 -i list.txt -c copy rel/silent_ungraded.mp4
+          pip install -q numpy scipy && pip install -q --no-deps tinysoundfont
+          git clone -q --depth 1 https://github.com/mrbumpy409/GeneralUser-GS gugs
+          python score.py rel/score.wav
+          sh assemble.sh rel/silent_ungraded.mp4 rel/score.wav "rel/chasing-the-sun-$TAG.mp4"
+      - name: publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          jq -r '.notes // "render batch"' render.json > notes.md
+          cat res/*.log >> timings.txt 2>/dev/null || true
+          printf '\n\n```\n' >> notes.md; sort timings.txt | head -200 >> notes.md; printf '```\n' >> notes.md
+          gh release delete "$TAG" -y --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" rel/* --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
+      - name: publish final branch
+        if: env.MODE != 'stills'
+        run: |
+          mkdir fin && cp rel/*.mp4 rel/score.wav fin/ && cd fin && git init -q && git checkout -q --orphan r
+          git config user.name "render-bot" && git config user.email "render-bot@users.noreply.github.com"
+          git add -A && git commit -q -m "$TAG final"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:refs/heads/out/$TAG/final
