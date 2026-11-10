@@ -11,7 +11,7 @@ def setup(w=1280,h=536,spp=48,gpu=False,mblur=True):
     c.max_bounces=6; c.diffuse_bounces=2; c.glossy_bounces=3; c.transmission_bounces=4; c.transparent_max_bounces=8; c.volume_bounces=0
     c.sample_clamp_indirect=6.0; c.sample_clamp_direct=0.0; c.caustics_reflective=False; c.caustics_refractive=False
     c.use_light_tree=True
-    r.use_motion_blur=mblur; r.motion_blur_shutter=0.5
+    r.use_motion_blur=mblur; r.motion_blur_shutter=0.32
     r.use_persistent_data=True
     vs=sc.view_settings
     try: vs.view_transform='AgX'; vs.look='AgX - Medium High Contrast'

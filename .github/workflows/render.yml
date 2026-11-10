@@ -95,7 +95,7 @@ jobs:
       - name: publish final branch
         if: env.MODE != 'stills'
         run: |
-          mkdir fin && cp rel/*.mp4 rel/score.wav fin/ && cd fin && git init -q && git checkout -q --orphan r
+          mkdir fin && cp rel/chasing-the-sun-*.mp4 fin/ && cd fin && git init -q && git checkout -q --orphan r
           git config user.name "render-bot" && git config user.email "render-bot@users.noreply.github.com"
           git add -A && git commit -q -m "$TAG final"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:refs/heads/out/$TAG/final

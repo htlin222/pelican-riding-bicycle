@@ -85,9 +85,12 @@ def ground_material():
     grassc=g.ramp(big,[(0.25,srgb(0x3e4a1e)),(0.5,srgb(0x6a6a2a)),(0.75,srgb(0x8f7a38))])
     grassc=g.mix(g.math('MULTIPLY',mid,0.5),grassc,srgb(0x9a8a48))
     dirt=g.mix(mid,srgb(0x5a4632),srgb(0x7a6248))
-    wob=g.vmath('ADD',pos,g.vmath('SCALE',g.N('ShaderNodeTexNoise',{'Vector':pos,'Scale':0.08,'Detail':3.0}).outputs['Color'],scale=14.0).outputs[0]).outputs[0]
-    strata=g.noise(g.N('ShaderNodeMapping',{'Vector':wob,'Scale':(0.09,0.09,0.55),'Rotation':(0.22,0.1,0)}).outputs[0],1.0,detail=7,rough=.68,dist=1.6)
-    rock=g.ramp(strata,[(0.25,srgb(0x4a413a)),(0.45,srgb(0x6b5c4e)),(0.65,srgb(0x7f6d5a)),(0.85,srgb(0x5a5048))])
+    wob=g.vmath('ADD',pos,g.vmath('SCALE',g.N('ShaderNodeTexNoise',{'Vector':pos,'Scale':0.08,'Detail':3.0}).outputs['Color'],scale=5.0).outputs[0]).outputs[0]
+    strata=g.noise(g.N('ShaderNodeMapping',{'Vector':wob,'Scale':(0.05,0.05,1.1),'Rotation':(0.10,0.05,0)}).outputs[0],1.0,detail=9,rough=.74,dist=0.2)
+    frac=g.N('ShaderNodeTexVoronoi',{'Vector':g.N('ShaderNodeMapping',{'Vector':pos,'Scale':(1.3,1.3,0.45)}).outputs[0],'Scale':1.0,'Randomness':1.0},feature='DISTANCE_TO_EDGE').outputs['Distance']
+    crackm=g.math('SUBTRACT',1.0,g.maprange(frac,0.0,0.035,smooth=True))
+    rock=g.ramp(strata,[(0.25,srgb(0x3a332d)),(0.45,srgb(0x5a4e42)),(0.62,srgb(0x6e5f4e)),(0.85,srgb(0x443c35))])
+    rock=g.mix(g.math('MULTIPLY',g.maprange(g.noise(pos,0.35,detail=5,rough=.7),0.55,0.75,smooth=True),g.maprange(nz,0.25,0.6)),rock,srgb(0x55602a))
     slope=g.maprange(g.math('ADD',nz,g.math('MULTIPLY',g.math('SUBTRACT',mid,0.5),0.30)),0.50,0.74,smooth=True)   # 1 = flat
     col=g.mix(slope,rock,g.mix(g.maprange(mid,0.62,0.74,smooth=True),grassc,dirt))
     wet=g.maprange(hz,0.2,3.5,smooth=True)
@@ -95,7 +98,7 @@ def ground_material():
     foam=g.math('MULTIPLY',g.math('SUBTRACT',1.0,g.maprange(g.math('ADD',hz,g.math('MULTIPLY',g.noise(pos,0.5,detail=4),-1.0)),-0.25,0.35,smooth=True)),g.maprange(g.noise(pos,2.4,detail=5,rough=.75),0.42,0.6))
     col=g.mix(g.math('MULTIPLY',foam,0.7),col,(0.72,0.74,0.73,1))
     rb=g.N('ShaderNodeTexVoronoi',{'Vector':pos,'Scale':0.9,'Detail':3.0},feature='F1',distance='EUCLIDEAN').outputs['Distance']
-    h=g.math('ADD',g.math('MULTIPLY',g.mixf(slope,g.math('ADD',g.math('MULTIPLY',rb,0.5),g.math('MULTIPLY',strata,0.25)),mid),g.mixf(slope,0.4,0.08)),g.math('MULTIPLY',fine,0.02))
+    h=g.math('ADD',g.math('MULTIPLY',g.mixf(slope,g.math('ADD',g.math('MULTIPLY',rb,0.5),g.math('MULTIPLY',strata,0.45)),mid),g.mixf(slope,0.5,0.08)),g.math('MULTIPLY',fine,0.02))
     nrm=g.bump(h,strength=0.9,dist=1.0)
     setp(g,p,color=col,rough=g.mixf(wet,0.35,0.92),normal=nrm,spec=0.25)
     return m
@@ -132,7 +135,7 @@ def build_sea():
     V=[(-s,-s,SEA),(s,-s,SEA),(s,s,SEA),(-s,s,SEA)]
     ob=mesh_obj('Sea',V,[[0,1,2,3]],smooth=False); ob.data.materials.append(sea_material()); ob.location=(XJ,0,0); return ob
 
-def road_material():
+def road_material(s_end=1e9):
     m,g,p=new_mat('Road')
     uv=g.N('ShaderNodeUVMap').outputs[0]; s=g.N('ShaderNodeSeparateXYZ',{0:uv}); u=s.outputs[0]; v=s.outputs[1]
     pos=g.N('ShaderNodeNewGeometry').outputs['Position']
@@ -149,6 +152,8 @@ def road_material():
     wear=g.maprange(g.noise(pos,2.5,detail=6,rough=.7),0.35,0.62)
     yellow=g.math('MULTIPLY',band(0.07,0.17),g.math('ADD',0.12,g.math('MULTIPLY',wear,0.75)))
     white=g.math('MULTIPLY',band(3.22,3.32),g.math('ADD',0.1,g.math('MULTIPLY',wear,0.75)))
+    live=g.math('SUBTRACT',1.0,g.maprange(u,s_end-2.2,s_end-1.4))
+    yellow=g.math('MULTIPLY',yellow,live); white=g.math('MULTIPLY',white,live)
     col=g.mix(yellow,base,srgb(0xc9992a)); col=g.mix(white,col,srgb(0xcfccc0))
     paint=g.math('MAXIMUM',yellow,white)
     h=g.math('ADD',g.math('MULTIPLY',agg,0.004),g.math('MULTIPLY',paint,0.002))
@@ -166,7 +171,7 @@ def build_road():
     V=np.stack([VX, c[:,None]+ny[:,None]*lat[None,:], VZ],-1).reshape(-1,3)
     s=np.array([arclen(x) for x in xs])
     UV=np.stack([np.repeat(s[:,None],7,1),np.repeat(lat[None,:],len(xs),0)],-1).reshape(-1,2)
-    ob=mesh_obj('Road',V,grid_faces(len(xs),7),uvs=UV); ob.data.materials.append(road_material()); return ob
+    ob=mesh_obj('Road',V,grid_faces(len(xs),7),uvs=UV); ob.data.materials.append(road_material(float(s[-1]))); return ob
 
 def build_guardrail():
     """weathered timber posts carrying three steel cables: keeps the sea visible behind the rider"""

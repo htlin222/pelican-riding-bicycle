@@ -60,8 +60,8 @@ class Film:
         if t<6:
             u=t/6; i=0; pos=P+F*(-30+11*u)+L*(22-7*u)+Z*(13-5*u); look=P+F*13+Z*0.6-L*3; fov=34; fstop=11
         elif t<12:
-            u=(t-6)/6; i=1; pos=P+F*(-1.30+0.85*u)-L*(1.05-0.12*u); pos.z=road_z(pos)+0.15+0.36*u
-            look=P+F*(0.05+0.15*u)+Z*(0.26+0.58*u); fov=44; fstop=2.8
+            u=(t-6)/6; u2=u*u*(3-2*u); i=1; pos=P+F*(-1.30+1.15*u2)-L*(1.05+1.15*u2); pos.z=road_z(pos)+0.15+0.55*u2
+            look=P+F*(0.05+0.15*u2)+Z*(0.26+0.92*u2); fov=44; fstop=2.8
         elif t<21:
             u=(t-12)/9; i=2; pos=P+F*(1.2+2.0*u)+L*9.5; pos.z=max(float(terrainH(pos.x,pos.y))+0.6,P.z+1.05)
             look=P+F*0.25+Z*0.95; fov=12.5; fstop=2.0; expo=0.25
@@ -75,7 +75,7 @@ class Film:
             u=(t-39)/5; i=5; pos=P-F*(4.3-1.4*u)+L*0.55+Z*(1.35-0.5*u); look=P+F*4+Z*1.45; fov=54; fstop=4
             pos.z+=0.012*math.sin(t*37)+0.008*math.sin(t*23); look.z+=0.02*math.sin(t*29); roll=0.004*math.sin(t*17)
         elif t<52:
-            u=(t-44)/8; i=6; pos=Vector((XJ+25,LANE+2.6,ZJ+9.5)); look=P+Z*0.8
+            u=(t-44)/8; i=6; pos=Vector((XJ+30,LANE-3.2,ZJ+7.2)); look=P+Z*0.8
             d=(look-pos).length; fov=float(clamp(math.degrees(2*math.atan(2.0/d)),6.5,42)); fstop=4; expo=0.0
         elif t<59.5:
             u=(t-52)/7.5; i=7; D=38.0; SH=Vector((SUN[0],SUN[1],0)).normalized(); PP=Vector((-SH.y,SH.x,0)); tanE=SUN[2]/math.hypot(SUN[0],SUN[1])
@@ -92,10 +92,10 @@ class Film:
         s.rider.matrix_world=rs['M']
         ped,ph=s.bike.pose(rs['spin'],rs['steer']); s.pel.pose_legs(ped,ph)
         f=rs['spread']; om=4.2
-        flap=0.16+0.52*math.sin(om*w); flex=(0.5+0.5*math.cos(om*w))*0.9
+        A=0.62+0.34*(1-float(smooth(WJ+1.6,WJ+3.2,w))); flap=0.14+A*math.sin(om*w); flex=(0.5+0.5*math.cos(om*w))*0.9
         s.pel.pose_wings(f,flap*f,flex*f); s.pel.pose_neck(float(smooth(WJ+0.35,WJ+1.7,w)))
         s.pel.bird.location=Vector(bike.SADDLE)+Vector((0,0,0.004*math.sin(2*ph)-0.03*f*math.sin(om*w-0.6)))
-        s.pel.pose_scarf(w,1.0,lift=0.25*f)
+        s.pel.pose_scarf(w,1.0,lift=-0.12*f)
         for n in s.time_nodes: n.outputs[0].default_value=t
         # flock
         if s.flock:

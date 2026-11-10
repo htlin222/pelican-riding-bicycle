@@ -160,7 +160,7 @@ class Bike:
         for i in range(N):
             a=i*2*np.pi/N; side=1 if i%2 else -1; off=0.85*(1 if (i//2)%2 else -1)
             h=np.array([0.02*math.cos(a+off),side*0.027,0.02*math.sin(a+off)]); r=np.array([0.224*math.cos(a),0,0.224*math.sin(a)])
-            sp.append(tube_mesh([h,r],0.0021,seg=5,cap=False))
+            sp.append(tube_mesh([h,r],0.0028,seg=5,cap=False))
         obj('Spokes',join(sp),'chrome')
         hub=[tube_mesh([(0,-0.05,0),(0,0,0),(0,0.05,0)],0.012,seg=10)]
         for sy in (1,-1): hub.append(tube_mesh([(0,sy*0.024,0),(0,sy*0.03,0)],0.024,seg=16))
