@@ -342,8 +342,12 @@ class Pelican:
         # legs are posed in the PARENT (bike) frame
         s.hip=[Vector((loc[0]+0.006,sy*0.097,loc[2]+0.086)) for sy in (1,-1)]
         s.L1=0.37; s.L2=0.26
-        tV,tF=tube_mesh([(0,0,0),(0.2,0,0),(0.5,0,0),(0.8,0,0),(1,0,0)],[0.072,0.078,0.064,0.045,0.034],seg=12)
-        sV,sF=tube_mesh([(0,0,0),(0.12,0,0),(0.88,0,0),(1,0,0)],[0.033,0.026,0.025,0.031],seg=10)
+        tV,tF=tube_mesh([(0,0,0),(0.2,0,0),(0.45,0,0),(0.7,0,0),(0.88,0,0),(1,0,0)],[0.072,0.080,0.070,0.054,0.040,0.030],seg=14)
+        sV,sF=tube_mesh([(0,0,0),(0.10,0,0),(0.90,0,0),(1,0,0)],[0.029,0.0255,0.025,0.029],seg=12)
+        def ball(r,n=9):
+            xs=-r*np.cos(np.linspace(0,np.pi,n)); return tube_mesh([(x,0,0) for x in xs],np.sqrt(np.maximum(r*r-xs*xs,1e-8)),seg=14)
+        kV,kF=ball(0.0375); aV,aF=ball(0.031)
+        s.knees=[]
         fV,fF=foot_geo(); fV=fV*1.55; s.legs=[]
         for i in range(2):
             lp=s.bird if flight else parent
@@ -351,10 +355,14 @@ class Pelican:
             sh=mesh_obj('Tarsus',sV,sF); sh.data.materials.append(s.mats['leg']); sh.parent=lp; sh.rotation_mode='QUATERNION'
             ft=mesh_obj('Foot',fV,fF); ft.data.materials.append(s.mats['leg']); ft.parent=lp; ft.rotation_mode='QUATERNION'
             s.legs.append((th,sh,ft))
+            kn=mesh_obj('Knee',kV,kF); kn.data.materials.append(s.mats['leg']); kn.parent=lp
+            an=mesh_obj('Ankle',aV,aF); an.data.materials.append(s.mats['leg']); an.parent=lp
+            s.knees.append((kn,an))
             if flight:
                 sy=1 if i==0 else -1; a=Vector((-0.12,sy*0.07,0.05)); b=Vector((-0.30,sy*0.065,0.03)); c=Vector((-0.50,sy*0.06,0.045))
                 for ob,p0,p1 in ((th,a,b),(sh,b,c)):
                     v=p1-p0; ob.location=p0; ob.rotation_quaternion=v.to_track_quat('X','Z'); ob.scale=(v.length,0.8,0.8)
+                s.knees[i][0].location=b; s.knees[i][0].scale=(0.8,)*3; s.knees[i][1].location=c; s.knees[i][1].scale=(0.8,)*3
                 ft.location=c; ft.rotation_quaternion=Quaternion((0,0,1),math.pi)@Quaternion((0,1,0),R_(-8))
         if flight:
             s.tails=[]; s.pose_wings(1.0); return
@@ -400,6 +408,7 @@ class Pelican:
             kn=Vector((hip.x+s.L1*math.cos(base+a1),hip.y+(pd.y-hip.y)*0.55,hip.z+s.L1*math.sin(base+a1)))
             for ob,a,b in ((th,hip,kn),(sh,kn,ank)):
                 v=b-a; ob.location=a; ob.rotation_quaternion=v.to_track_quat('X','Z'); ob.scale=(v.length,1,1)
+            s.knees[i][0].location=kn; s.knees[i][1].location=ank
             ft.location=ank+Vector((0.0,0,-0.012)); ft.rotation_quaternion=Quaternion((0,1,0),R_(16)+0.18*math.sin(phase+(0 if i==0 else math.pi)))
     def pose_scarf(s,t,speed=1.0,lift=0.0):
         for k,o in enumerate(s.tails):
