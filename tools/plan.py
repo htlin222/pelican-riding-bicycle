@@ -7,5 +7,5 @@ else:
     n=c.get('frames',1584); k=c.get('chunks',40); a0=c.get('start',0)
     for i in range(k):
         a=a0+(n-a0)*i//k; b=a0+(n-a0)*(i+1)//k
-        if b>a: jobs.append(dict(base,id='c%03d'%i,mode='range',args='%d %d'%(a,b)))
+        if b>a: jobs.append(dict(base,id='c%03d'%(i+c.get('id0',0)),mode='range',args='%d %d'%(a,b)))
 print(json.dumps(jobs,separators=(',',':')))

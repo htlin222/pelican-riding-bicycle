@@ -1,10 +1,13 @@
 {
- "tag": "film-v3",
+ "tag": "film-v4",
+ "base": "film-v3",
+ "id0": 40,
+ "start": 1056,
  "mode": "film",
  "w": 1280,
  "h": 536,
  "spp": 32,
  "frames": 1584,
- "chunks": 60,
- "notes": "knee/ankle joints: tapered thigh + joint balls (leg no longer reads as a broken pipe)"
+ "chunks": 20,
+ "notes": "New wingbeat (asymmetric stroke, travelling wave, upstroke fold, feather bend, body bob, flap-glide); flight section only, first 44 s reused from film-v3. Captions removed."
 }

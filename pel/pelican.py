@@ -256,12 +256,12 @@ class Wing:
         def add(j,kind,x,z,a_sp,a_fd,L,W,color,roll=0.0,yoff=0.0,sec=False):
             if static: specs.append((j,kind,(x,yoff,z),a_sp,roll,L,W,color)); return
             ob=feather_obj('Fth',kind,fm,j,(x,yoff,z),Quaternion((1,0,0,0)),L,W,color)
-            s.feathers.append((ob,a_sp,a_fd,roll))
+            s.feathers.append((ob,a_sp,a_fd,roll,getattr(s,'_pk',None) if j is s.j2 else None,kind))
             if sec: s.secs.append(ob)
             if kind=='prim': s.prims.append((ob,L))
         PL=[0.40,0.42,0.44,0.46,0.48,0.50,0.51,0.51,0.48,0.42]
         for i in range(10):
-            k=i/9
+            k=i/9; s._pk=k
             add(s.j2,'prim',Lm*(0.04+0.92*k),-0.0006*i,R_(84-78*k**1.25),R_(28-20*k),PL[i],0.074-0.016*k,BLACK,roll=R_(-4))
             add(s.j2,'cov',Lm*(0.04+0.92*k),0.006,R_(86-74*k**1.25),R_(30-20*k),PL[i]*0.50,0.075,WHITE)
             add(s.j2,'cov',Lm*(0.04+0.92*k),-0.008,R_(86-74*k**1.25),R_(30-20*k),PL[i]*0.55,0.11,WHITE)
@@ -292,20 +292,30 @@ class Wing:
         Y0=Zt.cross(X0).normalized(); Z0=X0.cross(Y0).normalized()
         s.q_fold=Matrix((X0,Y0,Z0)).transposed().to_quaternion()
         s.q_base=Quaternion((0,0,1),R_(90))
-    def pose(s,f,flap=0.0,flex=0.0,sweep=R_(10),aoa=R_(4)):
-        """f: 0 folded .. 1 spread. flap: +up (rad). flex: 0..1 extra elbow/wrist bend on the upstroke."""
+    def pose(s,f,flap=0.0,flex=0.0,sweep=R_(10),aoa=R_(4),b1=0.0,b2=0.0,tw=0.0,load=0.0,up=0.0):
+        """f: 0 folded .. 1 spread. flap: +up (rad) at the shoulder. flex: 0..1 elbow/wrist fold (upstroke).
+        b1,b2: extra out-of-plane bend of forearm / hand (+up) -> the travelling wave down the wing.
+        tw: hand pronation (+ = leading edge down). load: +1 full downstroke air load (feather tips bend up).
+        up: 0..1 upstroke feathering (primaries rotate open like a venetian blind)."""
         qs=s.q_base@Quaternion((0,1,0),-flap)@Quaternion((0,0,1),sweep)@Quaternion((1,0,0),-aoa)
         k=1.0+0.2*f; s.root.scale=(k,s.side*k,k)
         s.j0.rotation_quaternion=s.q_fold.slerp(qs,f)
         e=R_(-128)+(R_(-22-34*flex)-R_(-128))*f
         w=R_(150)+(R_(16+38*flex)-R_(150))*f
-        s.j1.rotation_quaternion=Quaternion((0,0,1),e); s.j2.rotation_quaternion=Quaternion((0,0,1),w)
+        s.j1.rotation_quaternion=Quaternion((0,1,0),-b1*f)@Quaternion((0,0,1),e)@Quaternion((1,0,0),tw*0.35*f)
+        s.j2.rotation_quaternion=Quaternion((0,1,0),-b2*f)@Quaternion((0,0,1),w)@Quaternion((1,0,0),tw*0.65*f)
         cs_=min(1.0,max(0.0,(f-0.15)/0.5)); cc=tuple(WHITE[i]+(BLACK[i]-WHITE[i])*cs_ for i in range(3))+(1,)
         for ob in s.secs: ob.color=cc
         for ob,L0 in s.prims: ob.scale=(L0*(0.60+0.40*f),ob.scale.y,ob.scale.z)
-        for ob,a_sp,a_fd,roll in s.feathers:
-            a=a_fd+(a_sp-a_fd)*f
-            ob.rotation_quaternion=Quaternion((0,0,1),a)@Quaternion((1,0,0),roll)
+        for ob,a_sp,a_fd,roll,pk,kind in s.feathers:
+            a=a_fd+(a_sp-a_fd)*f; q=Quaternion((0,0,1),a)
+            if pk is not None:
+                g=1.0 if kind=='prim' else 0.55
+                lift=f*g*load*(0.05+0.24*pk*pk)                     # outer primaries bend most
+                q=Quaternion((0,0,1),a-f*g*up*0.10*(1-pk))@Quaternion((0,1,0),-lift)@Quaternion((1,0,0),roll+(f*up*0.55*(0.3+0.7*pk) if kind=='prim' else 0.0))
+            else:
+                q=q@Quaternion((0,1,0),-f*load*0.035)@Quaternion((1,0,0),roll)
+            ob.rotation_quaternion=q
 
 def foot_geo():
     VOX=0.002
@@ -395,8 +405,8 @@ class Pelican:
             s.scarf_anchor.matrix_local=Matrix.Translation(Vector(p))@t.to_track_quat('Z','X').to_matrix().to_4x4()
             back=Vector((-1,0,0)); back=(back-t*back.dot(t)).normalized()
             s.anchor=np.array(Vector(p)+back*0.052)
-    def pose_wings(s,f,flap=0.0,flex=0.0):
-        for w in s.wings: w.pose(f,flap,flex)
+    def pose_wings(s,f,flap=0.0,flex=0.0,**kw):
+        for w in s.wings: w.pose(f,flap,flex,**kw)
     def pose_legs(s,pedals,phase):
         """pedals: list of 2 Vector (bike frame) pedal-axle positions for left,right; phase: crank angle"""
         for i,(th,sh,ft) in enumerate(s.legs):

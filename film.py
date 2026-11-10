@@ -11,6 +11,26 @@ from pel.common import smooth, clamp, roadZ, roadC, roadCs, roadZs, terrainH, wo
 E=lambda k,d: type(d)(os.environ.get(k,d))
 R_=math.radians
 
+def _st(p,d=0.58):
+    """shoulder stroke: +1 top at p=0, -1 bottom at p=d (slow power stroke), back to +1 at p=1 (quick recovery)"""
+    p=p%1.0
+    return math.cos(math.pi*p/d) if p<d else -math.cos(math.pi*(p-d)/(1-d))
+def flap_pose(ph,A,gl=0.0,t=0.0,seed=0.0):
+    """ph: phase in cycles; A: amplitude 0..1; gl: 0 flapping .. 1 gliding. returns (kwargs for Wing.pose, bob, pitch)"""
+    d=0.58; p=ph%1.0; a=A*(1-gl)
+    s0=_st(p,d); s1=_st(p-0.09,d); s2=_st(p-0.20,d); vel=(_st(p+0.02,d)-_st(p-0.02,d))/0.04/5.4   # ~-1 mid downstroke .. +1.4 mid upstroke
+    upb=math.sin(math.pi*min(1.0,max(0.0,(p-d+0.03)/(1-d))))**2 if p>d-0.03 else 0.0
+    sway=0.03*math.sin(t*1.9+seed)+0.02*math.sin(t*3.1+seed*2)
+    kw=dict(flap=0.10*a/0.6+0.07*gl+a*0.78*s0+gl*sway,
+            flex=min(1.5,(0.25+1.5*a)*upb)+0.10*gl,
+            sweep=R_(7+10*a*_st(p-0.06,d)+3*gl), aoa=R_(4+2*gl),
+            b1=a*0.42*(s1-s0)+0.02*gl, b2=a*0.62*(s2-s1)-0.10*gl+gl*sway*0.8,
+            tw=R_(13)*a*max(0.0,-vel)-R_(9)*a*max(0.0,vel),
+            load=a*1.5*max(-0.6,-vel)+0.45*gl, up=min(1.0,1.6*a)*upb)
+    bob=-0.075*a*_st(p-0.10,d)           # body is driven up through the downstroke
+    pitch=R_(3.2)*a*_st(p-0.30,d)
+    return kw,bob,pitch
+
 class Film:
     def __init__(s):
         bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -29,6 +49,8 @@ class Film:
         s.focus=bl.empty('Focus'); s.cam.data.dof.focus_object=s.focus
         s.time_nodes=[n for nt in [s.world.node_tree]+[m.node_tree for m in bpy.data.materials if m.node_tree] for n in nt.nodes if n.name=='TIME']
         s.end0=s.rider_state(worldTime(59.5))
+        # hero wingbeat: frequency (Hz, world time) and phase table. heavy fast beats at take-off, slower in the cruise
+        ws=np.arange(WJ-0.2,WJ+16,0.002); fr=2.25-0.6*smooth(46.6,47.8,ws); s._ws=ws; s._ph=np.cumsum(fr)*0.002+0.80
         print('scene built in %.1fs, objects=%d'%(time.time()-t0,len(bpy.data.objects)),flush=True)
 
     # ------------------------------------------------------------ rider
@@ -46,7 +68,7 @@ class Film:
         else:
             u=w-WJ; z=flightZ(u); dz=(flightZ(u+0.02)-z)/0.02
             org=Vector((x,LANE,z+0.02)); fwd=Vector((V,0,dz*0.85)).normalized()
-            lean=0.10*math.sin(u*0.9)*smooth(0.2,1.5,u)+0.55*math.sin((w-47.2)*0.75)*smooth(47.2,47.7,w)*(1-smooth(52.0,52.6,w)); steer=0.0
+            lean=0.10*math.sin(u*0.9)*smooth(0.2,1.5,u)+0.20*math.sin((w-47.2)*0.75)*smooth(47.2,47.7,w)*(1-smooth(52.0,52.6,w)); steer=0.0
             spin=arclen(XJ)/bike.RW+(x-XJ)/bike.RW*max(0.35,1-0.2*u)
         left=Vector((0,0,1)).cross(fwd).normalized(); up=fwd.cross(left).normalized()
         M=Matrix((fwd,left,up)).transposed().to_4x4()@Matrix.Rotation(-lean,4,'X'); M.translation=org
@@ -92,9 +114,14 @@ class Film:
         s.rider.matrix_world=rs['M']
         ped,ph=s.bike.pose(rs['spin'],rs['steer']); s.pel.pose_legs(ped,ph)
         f=rs['spread']; om=4.2
-        A=0.62+0.34*(1-float(smooth(WJ+1.6,WJ+3.2,w))); flap=0.14+A*math.sin(om*w); flex=(0.5+0.5*math.cos(om*w))*0.9
-        s.pel.pose_wings(f,flap*f,flex*f); s.pel.pose_neck(float(smooth(WJ+0.35,WJ+1.7,w)))
-        s.pel.bird.location=Vector(bike.SADDLE)+Vector((0,0,0.004*math.sin(2*ph)-0.03*f*math.sin(om*w-0.6)))
+        ph=float(np.interp(w,s._ws,s._ph)); A=1.0-0.24*float(smooth(WJ+1.2,WJ+3.4,w))
+        gl=float(smooth(49.75,50.35,w)*(1-smooth(51.05,51.55,w))+smooth(55.0,55.8,w))    # flap-glide: pelicans coast between bursts
+        kw,bob,pitch=flap_pose(ph,A,gl,w)
+        s.pel.pose_wings(f,**kw); s.pel.pose_neck(float(smooth(WJ+0.35,WJ+1.7,w)))
+        if rs['air']:
+            M=rs['M'].copy(); k=f*float(smooth(WJ,WJ+0.5,w))
+            s.rider.matrix_world=Matrix.Translation((0,0,bob*k))@M@Matrix.Rotation(-pitch*k,4,'Y')
+        s.pel.bird.location=Vector(bike.SADDLE)+Vector((0,0,0.004*math.sin(2*ph)))
         s.pel.pose_scarf(w,1.0,lift=-0.12*f)
         for n in s.time_nodes: n.outputs[0].default_value=t
         # flock
@@ -104,11 +131,13 @@ class Film:
                 r=b['rank']; sd=b['side']
                 a=Vector((P.x+10-r*1.7,-27+sd*r*1.4,cz+r*0.2)); c=Vector((P.x+2.0+r*2.6,LANE+sd*(1.6+r*2.3),P.z+0.35+r*0.5-0.3*sd))
                 jx=math.sin(b['ph']*7.1)*1.4; jy=math.sin(b['ph']*3.3)*0.9; jz=math.sin(b['ph']*5.7)*0.7
-                p=a.lerp(c,gj)+Vector((jx,jy,jz)); p.z+=0.35*math.sin(w*(1.1+0.2*math.sin(b['ph']))+b['ph'])
-                roll=0.16*math.sin(w*0.7+b['ph']*2.3)+0.1*math.sin(b['ph']*4)
-                b['e'].matrix_world=Matrix.Translation(p)@Matrix.Rotation(roll,4,'X')
-                ob_=om*(0.82+0.07*((b['rank']*3+b['side'])%5)); fl=0.10+0.46*math.sin(ob_*w+b['ph']*1.9); fx=(0.5+0.5*math.cos(ob_*w+b['ph']*1.9))*0.9
-                b['p'].pose_wings(1.0,fl,fx)
+                fb=1.42+0.09*math.sin(b['ph']*2.9); wl=w-0.42*r-0.15*sd                     # the beat ripples down the line
+                cyc=(wl*0.135+0.31*math.sin(b['ph']))%1.0; glb=float(smooth(0.60,0.68,cyc)*(1-smooth(0.93,1.0,cyc)))
+                kwb,bobb,pitb=flap_pose(wl*fb+b['ph']*0.37,0.62+0.06*math.sin(b['ph']*5),glb,w,b['ph'])
+                p=a.lerp(c,gj)+Vector((jx,jy,jz)); p.z+=0.30*math.sin(w*(0.5+0.1*math.sin(b['ph']))+b['ph'])+bobb-0.25*glb*((cyc-0.6)/0.4)
+                roll=0.13*math.sin(w*0.7+b['ph']*2.3)+0.08*math.sin(b['ph']*4)
+                b['e'].matrix_world=Matrix.Translation(p)@Matrix.Rotation(roll,4,'X')@Matrix.Rotation(-pitb,4,'Y')
+                b['p'].pose_wings(1.0,**kwb)
         i,pos,look,fov,roll,fstop,expo=s.shot(t,rs)
         render.aim(s.cam,pos,look,fov,roll)
         s.focus.location=rs['org']+Vector((0,0,0.9)); s.cam.data.dof.aperture_fstop=fstop

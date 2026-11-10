@@ -66,6 +66,10 @@ jobs:
           TAG=$(jq -r .tag render.json); MODE=$(jq -r .mode render.json)
           echo "TAG=$TAG" >> $GITHUB_ENV; echo "MODE=$MODE" >> $GITHUB_ENV
           mkdir -p res rel
+          BASE=$(jq -r '.base // empty' render.json); ID0=$(jq -r '.id0 // 0' render.json)
+          if [ -n "$BASE" ]; then
+            for i in $(seq 0 $((ID0-1))); do c=$(printf c%03d $i); git fetch -q --depth 1 origin "out/$BASE/$c" && git archive FETCH_HEAD $c.mp4 | tar -x -C res; done
+          fi
           git fetch -q --depth 1 origin "refs/heads/out/$TAG/*:refs/remotes/o/*"
           for r in $(git for-each-ref --format='%(refname)' refs/remotes/o/); do git archive $r | tar -x -C res; done
           ls res | head -100
@@ -92,10 +96,3 @@ jobs:
           printf '\n\n```\n' >> notes.md; sort timings.txt | head -200 >> notes.md; printf '```\n' >> notes.md
           gh release delete "$TAG" -y --cleanup-tag 2>/dev/null || true
           gh release create "$TAG" rel/* --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
-      - name: publish final branch
-        if: env.MODE != 'stills'
-        run: |
-          mkdir fin && cp rel/chasing-the-sun-*.mp4 fin/ && cd fin && git init -q && git checkout -q --orphan r
-          git config user.name "render-bot" && git config user.email "render-bot@users.noreply.github.com"
-          git add -A && git commit -q -m "$TAG final"
-          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:refs/heads/out/$TAG/final
