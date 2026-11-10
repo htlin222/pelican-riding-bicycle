@@ -119,7 +119,7 @@ def srgb(h):
     f=lambda c: c/12.92 if c<=.04045 else ((c+.055)/1.055)**2.4
     return (f(r),f(g),f(b),1.0)
 
-FOG_DENS=0.0011
+FOG_DENS=0.00075
 def fog_group():
     if 'Fog' in bpy.data.node_groups: return bpy.data.node_groups['Fog']
     ng=bpy.data.node_groups.new('Fog','ShaderNodeTree')
@@ -136,13 +136,13 @@ def fog_group():
     dot=g.vmath('DOT_PRODUCT',geo.outputs['Incoming'],tuple(-SUN)).outputs['Value']
     warm=g.math('POWER',g.math('MAXIMUM',dot,0.0),6.0)
     warm2=g.math('POWER',g.math('MAXIMUM',dot,0.0),60.0)
-    col=g.mix(warm,(0.52,0.40,0.40,1),(1.0,0.50,0.24,1))
+    col=g.mix(warm,(0.62,0.43,0.36,1),(1.0,0.50,0.24,1))
     col=g.mix(warm2,col,(1.15,0.72,0.36,1))
     em=g.N('ShaderNodeEmission',{'Color':col,'Strength':ng_strength()})
     ng['em_node']=em.name
     mx=g.N('ShaderNodeMixShader',{0:fac,1:gi.outputs[0],2:em.outputs[0]})
     g.link(mx.outputs[0],go.inputs[0]); return ng
-_FOG_STRENGTH=[0.8]
+_FOG_STRENGTH=[0.62]
 def ng_strength(): return _FOG_STRENGTH[0]
 def set_fog_strength(v):
     _FOG_STRENGTH[0]=v

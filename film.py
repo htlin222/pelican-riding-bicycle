@@ -46,7 +46,7 @@ class Film:
         else:
             u=w-WJ; z=flightZ(u); dz=(flightZ(u+0.02)-z)/0.02
             org=Vector((x,LANE,z+0.02)); fwd=Vector((V,0,dz*0.85)).normalized()
-            lean=0.10*math.sin(u*0.9)*smooth(0.2,1.5,u)+0.42*math.sin((w-47.2)*0.75)*smooth(47.2,47.7,w)*(1-smooth(52.0,52.6,w)); steer=0.0
+            lean=0.10*math.sin(u*0.9)*smooth(0.2,1.5,u)+0.55*math.sin((w-47.2)*0.75)*smooth(47.2,47.7,w)*(1-smooth(52.0,52.6,w)); steer=0.0
             spin=arclen(XJ)/bike.RW+(x-XJ)/bike.RW*max(0.35,1-0.2*u)
         left=Vector((0,0,1)).cross(fwd).normalized(); up=fwd.cross(left).normalized()
         M=Matrix((fwd,left,up)).transposed().to_4x4()@Matrix.Rotation(-lean,4,'X'); M.translation=org
@@ -75,11 +75,11 @@ class Film:
             u=(t-39)/5; i=5; pos=P-F*(4.3-1.4*u)+L*0.55+Z*(1.35-0.5*u); look=P+F*4+Z*1.45; fov=54; fstop=4
             pos.z+=0.012*math.sin(t*37)+0.008*math.sin(t*23); look.z+=0.02*math.sin(t*29); roll=0.004*math.sin(t*17)
         elif t<52:
-            u=(t-44)/8; i=6; pos=Vector((XJ+24,LANE+1.7,ZJ+1.5)); look=P+Z*0.9
-            d=(look-pos).length; fov=float(clamp(math.degrees(2*math.atan(1.5/d)),6.5,40)); fstop=4; expo=0.15
+            u=(t-44)/8; i=6; pos=Vector((XJ+25,LANE+2.6,ZJ+9.5)); look=P+Z*0.8
+            d=(look-pos).length; fov=float(clamp(math.degrees(2*math.atan(2.0/d)),6.5,42)); fstop=4; expo=0.0
         elif t<59.5:
             u=(t-52)/7.5; i=7; D=38.0; SH=Vector((SUN[0],SUN[1],0)).normalized(); PP=Vector((-SH.y,SH.x,0)); tanE=SUN[2]/math.hypot(SUN[0],SUN[1])
-            look=P+Z*0.95; pos=look-SH*D-Z*(D*tanE)+PP*(-0.8+1.6*u)+Z*(0.2-0.4*u); fov=4.9; fstop=11; expo=-1.5
+            look=P+Z*0.95; pos=look-SH*D-Z*(D*tanE)+PP*(-0.8+1.6*u)+Z*(0.2-0.4*u); fov=4.9; fstop=11; expo=-2.75
         else:
             u=(t-59.5)/6.5; i=8; e=s.end0; pos=e['org']-e['F']*5.5+e['L']*0.9+Z*2.6; look=P+Z*1.6+e['F']*2; fov=30-8*u; fstop=5.6; expo=-0.45
         g=max(float(terrainH(pos.x,pos.y)),0.0)+0.25
@@ -112,7 +112,7 @@ class Film:
         i,pos,look,fov,roll,fstop,expo=s.shot(t,rs)
         render.aim(s.cam,pos,look,fov,roll)
         s.focus.location=rs['org']+Vector((0,0,0.9)); s.cam.data.dof.aperture_fstop=fstop
-        s.sc.view_settings.exposure=-1.35+expo
+        s.sc.view_settings.exposure=-1.6+expo
         return i
 
 def main():

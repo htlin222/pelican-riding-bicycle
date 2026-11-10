@@ -119,7 +119,7 @@ def head_mats():
     return ride,fly
 NECK_RIDE=[NB,(0.352,0,0.452),(0.372,0,0.575),(0.318,0,0.695),(0.262,0,0.795)]
 NECK_FLY=[NB,(0.300,0,0.450),(0.235,0,0.530),(0.150,0,0.545),(0.150,0,0.610)]
-NECK_R=[.105,.078,.057,.048,.046,.050]
+NECK_R=[.118,.098,.076,.064,.060,.060]
 NECK_ATT=np.array([0.326,0,0.889])   # where the neck enters the head, head-model coords
 def catmull(P,n):
     P=np.asarray(P,dtype=float); Q=np.vstack([2*P[0]-P[1],P,2*P[-1]-P[-2]]); out=[]
@@ -165,20 +165,20 @@ def build_head(head,mat):
     d=sdf.ellipsoid(P,(0.338,0,0.897),(0.078,0.054,0.057)); d=sdf.smin(d,sdf.sphere(P,(0.374,0,0.918),0.042),.022)
     d=sdf.smin(d,sdf.sphere(P,tuple(NECK_ATT),0.049),.02)
     V,F=sdf.mesh(d,lo,VOX,smooth_iters=3)
-    base=np.array([0.93,0.90,0.87]); skin=np.array([0.97,0.55,0.38]); skin2=np.array([0.98,0.74,0.40])
+    base=np.array([0.93,0.90,0.87]); skin=np.array([0.98,0.50,0.40]); skin2=np.array([1.0,0.72,0.36])
     C=np.repeat(base[None,:],len(V),0)
     e=np.array([0.378,0.0,0.908]); pv=V.copy(); pv[:,1]=np.abs(pv[:,1])-0.040
     dd=np.linalg.norm((pv-e)*np.array([0.62,1.5,0.9]),axis=1)
-    k=(1-np.clip((dd-0.034)/0.012,0,1))[:,None]*(V[:,0]>0.318)[:,None]
-    k2=(1-np.clip((dd-0.016)/0.012,0,1))[:,None]
+    k=(1-np.clip((dd-0.046)/0.012,0,1))[:,None]*(V[:,0]>0.312)[:,None]
+    k2=(1-np.clip((dd-0.022)/0.012,0,1))[:,None]
     C=C*(1-k)+skin*k; C=C*(1-k2*0.7)+skin2*k2*0.7
     ob=mesh_obj('PelicanHead',V,F,colors=C); ob.data.materials.append(mat); ob.parent=head; return ob
 
 def build_bill(bird,mats):
-    B0=np.array([0.385,0,0.893]); ang=R_(27); a=np.array([math.cos(ang),0,-math.sin(ang)]); u=np.array([math.sin(ang),0,math.cos(ang)]); y=np.array([0,1,0.0]); L=0.47
+    B0=np.array([0.385,0,0.893]); ang=R_(27); a=np.array([math.cos(ang),0,-math.sin(ang)]); u=np.array([math.sin(ang),0,math.cos(ang)]); y=np.array([0,1,0.0]); L=0.54
     def w(s):
-        s=np.asarray(s,dtype=float); return (0.031+0.006*np.clip(s,0,1))*np.sqrt(np.clip(1-np.clip((s-0.90)/0.10,0,1)**2,0,1))+0.0025
-    def th(s): return 0.016*(1-0.72*np.clip(s,0,1))+0.004
+        s=np.asarray(s,dtype=float); return (0.034+0.007*np.clip(s,0,1))*np.sqrt(np.clip(1-np.clip((s-0.90)/0.10,0,1)**2,0,1))+0.0025
+    def th(s): return 0.021*(1-0.70*np.clip(s,0,1))+0.004
     def spine(s): return B0+a*(L*s)-u*(0.016*np.clip(s,0,2)**2)
     ss=np.concatenate([[-0.05],np.linspace(0,0.9,17),[0.94,0.97,0.99,1.0]])
     tht=np.linspace(0,np.pi,11)
@@ -216,7 +216,7 @@ def build_bill(bird,mats):
     for s in sp:
         c=spine(max(s,0.0))+a*(L*min(s,0.0))
         wr=max(float(w(max(s,0)))-0.004,0.001)
-        dep=0.074*math.sin(math.pi*(np.clip(s+0.10,0,1.075)/1.075)**0.8)**1.0*(1-0.2*np.clip(s,0,1))+0.003
+        dep=0.105*math.sin(math.pi*(np.clip(s+0.10,0,1.075)/1.075)**0.72)**0.9*(1-0.15*np.clip(s,0,1))+0.003
         for p_ in ph:
             V.append(c+y*wr*math.cos(p_)-u*(0.008+dep*math.sin(p_)**0.72))
     pouch=mesh_obj('Pouch',np.array(V),grid_faces(len(sp),len(ph))); pouch.data.materials.append(mats['pouch']); pouch.parent=bird
@@ -224,16 +224,16 @@ def build_bill(bird,mats):
     return upper
 
 def build_head_details(bird,body,mats):
-    eV,eF=uv_sphere(0.0155)
+    eV,eF=uv_sphere(0.017)
     for sy in (1,-1):
-        e=mesh_obj('Eye',eV,eF); e.data.materials.append(mats['eye']); e.parent=bird; e.location=(0.381,sy*0.0430,0.911)
+        e=mesh_obj('Eye',eV,eF); e.data.materials.append(mats['eye']); e.parent=bird; e.location=(0.381,sy*0.0420,0.911)
     # shaggy nape crest
     rng=np.random.RandomState(5)
-    for i in range(26):
-        az=rng.uniform(-0.7,0.7); el=rng.uniform(-0.95,-0.15)
+    for i in range(34):
+        az=rng.uniform(-0.7,0.7); el=rng.uniform(-1.25,-0.45)
         d=Vector((-math.cos(el)*math.cos(az),math.sin(az)*0.6,math.sin(el)))
         q=d.to_track_quat('X','Z')
-        feather_obj('Crest',"crest",mats['feather'],bird,(0.285+rng.uniform(-.01,.01),rng.uniform(-.018,.018),0.905+rng.uniform(-.02,.012)),q,rng.uniform(0.06,0.13),0.017,WHITE)
+        feather_obj('Crest',"crest",mats['feather'],bird,(0.285+rng.uniform(-.01,.01),rng.uniform(-.018,.018),0.905+rng.uniform(-.02,.012)),q,rng.uniform(0.07,0.15),0.030,(0.97,0.95,0.92,1))
     # tail fan
     for i in range(11):
         az=(i-5)/5*0.62
@@ -252,30 +252,31 @@ class Wing:
             V[:,2]*=0.55
             o=mesh_obj('WingArm',V,F); o.data.materials.append(mats['plumage_plain']); o.parent=j
         bone(s.j0,Lh,0.052,0.040); bone(s.j1,Lf,0.040,0.027); bone(s.j2,Lm*0.85,0.027,0.010)
-        s.secs=[]
+        s.secs=[]; s.prims=[]
         def add(j,kind,x,z,a_sp,a_fd,L,W,color,roll=0.0,yoff=0.0,sec=False):
             if static: specs.append((j,kind,(x,yoff,z),a_sp,roll,L,W,color)); return
             ob=feather_obj('Fth',kind,fm,j,(x,yoff,z),Quaternion((1,0,0,0)),L,W,color)
             s.feathers.append((ob,a_sp,a_fd,roll))
             if sec: s.secs.append(ob)
+            if kind=='prim': s.prims.append((ob,L))
         PL=[0.40,0.42,0.44,0.46,0.48,0.50,0.51,0.51,0.48,0.42]
         for i in range(10):
             k=i/9
             add(s.j2,'prim',Lm*(0.04+0.92*k),-0.0006*i,R_(84-78*k**1.25),R_(28-20*k),PL[i],0.074-0.016*k,BLACK,roll=R_(-4))
             add(s.j2,'cov',Lm*(0.04+0.92*k),0.006,R_(86-74*k**1.25),R_(30-20*k),PL[i]*0.50,0.075,WHITE)
-            add(s.j2,'cov',Lm*(0.04+0.92*k),-0.008,R_(86-74*k**1.25),R_(30-20*k),PL[i]*0.55,0.075,WHITE)
+            add(s.j2,'cov',Lm*(0.04+0.92*k),-0.008,R_(86-74*k**1.25),R_(30-20*k),PL[i]*0.55,0.11,WHITE)
         NS=15
         for j in range(NS):
             k=(j+0.5)/NS
             add(s.j1,'sec',Lf*(0.02+0.98*k),-0.0005*(NS-j)-0.006,R_(97-11*k),R_(158-10*k),0.44+0.03*k,0.078,BLACK,sec=True,roll=R_(-3))
             add(s.j1,'cov',Lf*(0.02+0.98*k),0.005,R_(98-11*k),R_(160-10*k),0.27,0.082,WHITE)
             add(s.j1,'cov',Lf*(0.02+0.98*k),0.011,R_(100-11*k),R_(162-10*k),0.15,0.08,WHITE,yoff=-0.005)
-            add(s.j1,'cov',Lf*(0.02+0.98*k),-0.013,R_(98-11*k),R_(160-10*k),0.30,0.082,WHITE)
+            add(s.j1,'cov',Lf*(0.02+0.98*k),-0.013,R_(98-11*k),R_(160-10*k),0.31,0.125,WHITE)
         for t in range(7):
             k=(t+0.5)/7
             add(s.j0,'sec',Lh*(0.10+0.90*k),0.002+0.0006*t,R_(112-12*k),R_(24+10*k),0.40+0.04*k,0.085,WHITE)
             add(s.j0,'cov',Lh*(0.10+0.90*k),0.009,R_(112-12*k),R_(22+10*k),0.24,0.085,WHITE)
-            add(s.j0,'cov',Lh*(0.10+0.90*k),-0.010,R_(110-12*k),R_(24+10*k),0.28,0.085,WHITE)
+            add(s.j0,'cov',Lh*(0.10+0.90*k),-0.010,R_(110-12*k),R_(24+10*k),0.30,0.125,WHITE)
         if static:
             for j in (s.j0,s.j1,s.j2):
                 Vs=[];Fs=[];UVs=[];Cs=[];o=0
@@ -301,6 +302,7 @@ class Wing:
         s.j1.rotation_quaternion=Quaternion((0,0,1),e); s.j2.rotation_quaternion=Quaternion((0,0,1),w)
         cs_=min(1.0,max(0.0,(f-0.15)/0.5)); cc=tuple(WHITE[i]+(BLACK[i]-WHITE[i])*cs_ for i in range(3))+(1,)
         for ob in s.secs: ob.color=cc
+        for ob,L0 in s.prims: ob.scale=(L0*(0.60+0.40*f),ob.scale.y,ob.scale.z)
         for ob,a_sp,a_fd,roll in s.feathers:
             a=a_fd+(a_sp-a_fd)*f
             ob.rotation_quaternion=Quaternion((0,0,1),a)@Quaternion((1,0,0),roll)
@@ -323,7 +325,7 @@ class Pelican:
     _M=None
     def __init__(s,parent,loc,flight=False):
         s.flight=flight
-        s.bird=empty('Bird',parent,loc)
+        s.bird=empty('Bird',parent,loc); s.bird.scale=(1.14,1.14,1.14)
         if flight: s.bird.rotation_quaternion=Quaternion((0,1,0),R_(17))
         if Pelican._M is None: Pelican._M=dict(feather=feather_mat(),feather_vc=feather_mat(True),bill=bill_mat(),pouch=pouch_mat(),leg=skin_mat(),plum=plumage_mat(),
                     nail=simple_mat('Nail',srgb(0xd9451c),0.28,coat=0.5)[0],ramus=simple_mat('Ramus',srgb(0xe9b46a),0.4,sss=0.2)[0],
@@ -338,14 +340,14 @@ class Pelican:
         s.scarf_anchor=None; s.pose_neck(1.0 if flight else 0.0)
         s.wings=[Wing(s.bird,1,s.mats,static=flight),Wing(s.bird,-1,s.mats,static=flight)]
         # legs are posed in the PARENT (bike) frame
-        s.hip=[Vector((loc[0]+0.005,sy*0.085,loc[2]+0.075)) for sy in (1,-1)]
+        s.hip=[Vector((loc[0]+0.006,sy*0.097,loc[2]+0.086)) for sy in (1,-1)]
         s.L1=0.37; s.L2=0.26
-        tV,tF=tube_mesh([(0,0,0),(0.2,0,0),(0.5,0,0),(0.8,0,0),(1,0,0)],[0.066,0.070,0.058,0.040,0.030],seg=12)
-        sV,sF=tube_mesh([(0,0,0),(0.12,0,0),(0.88,0,0),(1,0,0)],[0.030,0.021,0.020,0.027],seg=10)
+        tV,tF=tube_mesh([(0,0,0),(0.2,0,0),(0.5,0,0),(0.8,0,0),(1,0,0)],[0.072,0.078,0.064,0.045,0.034],seg=12)
+        sV,sF=tube_mesh([(0,0,0),(0.12,0,0),(0.88,0,0),(1,0,0)],[0.033,0.026,0.025,0.031],seg=10)
         fV,fF=foot_geo(); fV=fV*1.55; s.legs=[]
         for i in range(2):
             lp=s.bird if flight else parent
-            th=mesh_obj('Thigh',tV,tF); th.data.materials.append(s.mats['plumage_plain']); th.parent=lp; th.rotation_mode='QUATERNION'
+            th=mesh_obj('Thigh',tV,tF,colors=np.repeat(np.array([[0.93,0.90,0.87]]),len(tV),0)); th.data.materials.append(s.mats['plum']); th.parent=lp; th.rotation_mode='QUATERNION'
             sh=mesh_obj('Tarsus',sV,sF); sh.data.materials.append(s.mats['leg']); sh.parent=lp; sh.rotation_mode='QUATERNION'
             ft=mesh_obj('Foot',fV,fF); ft.data.materials.append(s.mats['leg']); ft.parent=lp; ft.rotation_mode='QUATERNION'
             s.legs.append((th,sh,ft))
@@ -375,7 +377,7 @@ class Pelican:
         g=min(1.0,max(0.0,g)); g=g*g*(3-2*g)
         qr=s.MR.to_quaternion(); qf=s.MF.to_quaternion(); q=qr.slerp(qf,g)
         hc=Vector((0.292,0,0.893)).lerp(Vector((0.262,0,0.585)),g)+Vector((0.03*math.sin(math.pi*g),0,0))
-        M=Matrix.Translation(hc)@q.to_matrix().to_4x4()@Matrix.Translation(-Vector(HR)); s.head.matrix_local=M
+        M=Matrix.Translation(hc)@q.to_matrix().to_4x4()@Matrix.Scale(1.16,4)@Matrix.Translation(-Vector(HR)); s.head.matrix_local=M
         att=np.array(M@Vector(NECK_ATT))
         ctrl=[tuple(np.array(a)*(1-g)+np.array(b)*g) for a,b in zip(NECK_RIDE,NECK_FLY)]+[tuple(att)]
         pts=catmull(ctrl,26); V,F=tube_mesh(pts,np.interp(np.linspace(0,5,26),range(6),NECK_R),seg=16)
@@ -406,12 +408,12 @@ class Pelican:
             ph=k*1.7
             for i in range(s.NS+1):
                 q=i/s.NS; amp=0.02+0.11*q**1.3
-                yaw=math.sin(t*9.0-i*0.42+ph)*0.55*q+math.sin(t*5.1-i*0.23+ph*2)*0.25*q
+                yaw=math.sin(t*9.0-i*0.42+ph)*0.55*q+math.sin(t*5.1-i*0.23+ph*2)*0.25*q+math.sin(t*14.3-i*0.8+ph*3)*0.2*q*q
                 pit=(0.10+lift)-0.55*q*(1-speed*0.75)+math.sin(t*7.3-i*0.36+ph)*0.35*q
                 dvec=np.array([-math.cos(pit)*math.cos(yaw),math.sin(yaw),math.sin(pit)])
                 if i>0: p=p+dvec*L
                 tw=math.sin(t*6.1-i*0.3+ph)*0.9*q
-                wd=(0.040+0.006*math.sin(i*0.5))*(1-0.2*q)
+                wd=(0.044+0.008*math.sin(i*0.5+ph))*(1-0.62*q**1.6)
                 side=np.array([0,math.sin(tw)*0.6,math.cos(tw)]); side=side-dvec*np.dot(side,dvec); side/=np.linalg.norm(side)
                 for j in range(s.NW):
                     V[i,j]=p+side*wd*(j/(s.NW-1)*2-1)

@@ -11,7 +11,7 @@ def build_sky():
     sky=g.N('ShaderNodeTexSky',sky_type='MULTIPLE_SCATTERING')
     sky.sun_elevation=SUN_EL; sky.sun_rotation=math.pi/2-SUN_AZ
     import os
-    sky.sun_disc=True; sky.sun_size=math.radians(2.6); sky.sun_intensity=float(os.environ.get('SUNI',0.22))
+    sky.sun_disc=False; sky.sun_size=math.radians(2.6); sky.sun_intensity=float(os.environ.get('SUNI',0.22))
     sky.altitude=30; sky.air_density=float(os.environ.get('AIR',1.8)); sky.aerosol_density=float(os.environ.get('AERO',4.0)); sky.ozone_density=float(os.environ.get('OZ',2.5))
     tc=g.N('ShaderNodeTexCoord'); d=tc.outputs['Generated']
     xyz=g.N('ShaderNodeSeparateXYZ',{0:d}); dz=xyz.outputs[2]
@@ -41,32 +41,33 @@ def build_sky():
     sdot=g.vmath('DOT_PRODUCT',g.vmath('NORMALIZE',d).outputs[0],tuple(SUN)).outputs['Value']
     near=g.math('POWER',g.math('MAXIMUM',sdot,0.0),3.0)
     near2=g.math('POWER',g.math('MAXIMUM',sdot,0.0),24.0)
-    lit=g.mix(near,(1.0,0.46,0.34,1),(1.6,0.62,0.26,1))
-    lit=g.mix(near2,lit,(3.2,1.9,0.9,1))
+    lit=g.mix(near,(0.9,0.42,0.31,1),(1.0,0.42,0.18,1))
+    lit=g.vmath('SCALE',g.mix(near2,g.vmath('SCALE',lit,scale=0.45).outputs[0],(1.0,0.62,0.30,1)),scale=2.4).outputs[0]
     shade=g.mix(near,(0.13,0.11,0.2,1),(0.42,0.2,0.2,1))
     # fake self shadowing: thicker parts darker, edges lit
     thick=g.maprange(n1,0.60,0.80,smooth=True)
     ccol=g.mix(g.math('MULTIPLY',thick,0.75),lit,shade)
     CL=g.N('ShaderNodeValue'); CL.name='CLOUD_GAIN'; CL.outputs[0].default_value=1.0
     ccol=g.vmath('SCALE',ccol,scale=CL.outputs[0]).outputs[0]
-    au=g.math('ADD',g.math('MULTIPLY',g.math('POWER',g.math('MAXIMUM',sdot,0.0),900.0),5.0),g.math('MULTIPLY',g.math('POWER',g.math('MAXIMUM',sdot,0.0),90.0),1.1))
-    skyw=g.vmath('MULTIPLY',sky.outputs[0],(1.12,0.95,0.84)).outputs[0]
+    au=g.math('ADD',g.math('MULTIPLY',g.math('POWER',g.math('MAXIMUM',sdot,0.0),900.0),2.2),g.math('MULTIPLY',g.math('POWER',g.math('MAXIMUM',sdot,0.0),90.0),0.9))
+    skyw=g.vmath('MULTIPLY',sky.outputs[0],(1.22,0.95,0.76)).outputs[0]
     skyc=g.vmath('ADD',skyw,g.vmath('SCALE',(1.0,0.42,0.12),scale=au).outputs[0]).outputs[0]
     # limb darkening on the sun disc
     r2=g.math('DIVIDE',g.math('MULTIPLY',g.math('SUBTRACT',1.0,sdot),2.0),(math.radians(2.6)/2)**2)
     limb=g.math('POWER',g.math('MAXIMUM',g.math('SUBTRACT',1.0,r2),0.0),0.35)
     indisc=g.math('LESS_THAN',r2,1.0)
-    lc=g.mix(limb,(0.9,0.22,0.03,1),(1.0,0.86,0.62,1))
-    skyc=g.mix(indisc,skyc,g.vmath('MULTIPLY',skyc,lc).outputs[0])
+    lc=g.vmath('MULTIPLY',skyc,g.vmath('SCALE',g.mix(limb,(0.34,0.17,0.06,1),(1.0,0.84,0.62,1)),scale=7.0).outputs[0]).outputs[0]
+    edge=g.math('SUBTRACT',1.0,g.maprange(r2,0.88,1.0,smooth=True))
+    skyc=g.mix(g.math('MULTIPLY',indisc,edge),skyc,lc)
     col=g.mix(g.math('MULTIPLY',dens,0.9),skyc,ccol)
     # horizon haze, same colour as the distance fog on sea and land
     hw=g.math('POWER',g.math('MAXIMUM',sdot,0.0),6.0); hw2=g.math('POWER',g.math('MAXIMUM',sdot,0.0),60.0)
-    hz=g.mix(hw,(0.52,0.40,0.40,1),(1.0,0.50,0.24,1)); hz=g.mix(hw2,hz,(1.15,0.72,0.36,1))
-    hz=g.vmath('SCALE',hz,scale=0.8).outputs[0]
-    col=g.mix(g.math('MULTIPLY',g.math('SUBTRACT',1.0,g.maprange(dz,-0.002,0.028,smooth=True)),g.math('SUBTRACT',1.0,g.math('MULTIPLY',indisc,0.85))),col,hz)
-    bg=g.N('ShaderNodeBackground',{'Color':col,'Strength':float(os.environ.get('BG',1.0))}); bg.name='BG'
+    hz=g.mix(hw,(0.62,0.43,0.36,1),(1.0,0.50,0.24,1)); hz=g.mix(hw2,hz,(1.15,0.72,0.36,1))
+    hz=g.vmath('SCALE',hz,scale=0.62).outputs[0]
+    col=g.mix(g.math('MULTIPLY',g.math('SUBTRACT',1.0,g.maprange(dz,-0.002,0.016,smooth=True)),g.math('SUBTRACT',1.0,g.math('MULTIPLY',indisc,0.85))),col,hz)
+    bg=g.N('ShaderNodeBackground',{'Color':col,'Strength':float(os.environ.get('BG',0.82))}); bg.name='BG'
     g.link(bg.outputs[0],out.inputs['Surface'])
-    ld=bpy.data.lights.new('SunL','SUN'); ld.energy=float(os.environ.get('LAMP',8.0)); ld.color=(1.0,0.56,0.30); ld.angle=math.radians(1.5)
+    ld=bpy.data.lights.new('SunL','SUN'); ld.energy=float(os.environ.get('LAMP',8.0)); ld.color=(1.0,0.56,0.30); ld.angle=math.radians(2.8)
     lo=bpy.data.objects.new('SunL',ld); sc.collection.objects.link(lo)
     from mathutils import Vector
     ke=math.radians(8.5); kd=Vector((math.cos(ke)*math.cos(SUN_AZ),math.cos(ke)*math.sin(SUN_AZ),math.sin(ke)))
@@ -92,9 +93,9 @@ def ground_material():
     wet=g.maprange(hz,0.2,3.5,smooth=True)
     col=g.mix(wet,g.vmath('SCALE',col,scale=0.35).outputs[0],col)
     foam=g.math('MULTIPLY',g.math('SUBTRACT',1.0,g.maprange(g.math('ADD',hz,g.math('MULTIPLY',g.noise(pos,0.5,detail=4),-1.0)),-0.25,0.35,smooth=True)),g.maprange(g.noise(pos,2.4,detail=5,rough=.75),0.42,0.6))
-    col=g.mix(foam,col,(0.82,0.84,0.84,1))
+    col=g.mix(g.math('MULTIPLY',foam,0.7),col,(0.72,0.74,0.73,1))
     rb=g.N('ShaderNodeTexVoronoi',{'Vector':pos,'Scale':0.9,'Detail':3.0},feature='F1',distance='EUCLIDEAN').outputs['Distance']
-    h=g.math('ADD',g.math('MULTIPLY',g.mixf(slope,rb,mid),g.mixf(slope,0.55,0.08)),g.math('MULTIPLY',fine,0.02))
+    h=g.math('ADD',g.math('MULTIPLY',g.mixf(slope,g.math('ADD',g.math('MULTIPLY',rb,0.5),g.math('MULTIPLY',strata,0.25)),mid),g.mixf(slope,0.4,0.08)),g.math('MULTIPLY',fine,0.02))
     nrm=g.bump(h,strength=0.9,dist=1.0)
     setp(g,p,color=col,rough=g.mixf(wet,0.35,0.92),normal=nrm,spec=0.25)
     return m
@@ -124,7 +125,7 @@ def sea_material():
     nrm=g.bump(h,strength=1.0,dist=1.0)
     crest=g.maprange(g.math('ADD',swell,g.math('MULTIPLY',chop,0.6)),0.95,1.12,smooth=True)
     col=g.mix(g.math('MULTIPLY',crest,0.35),(0.006,0.035,0.05,1),(0.55,0.62,0.62,1))
-    setp(g,p,color=col,rough=g.mixf(crest,0.05,0.5),normal=nrm,ior=1.33)
+    setp(g,p,color=col,rough=g.mixf(crest,0.085,0.5),normal=nrm,ior=1.33)
     return m
 def build_sea():
     s=30000.0
@@ -156,17 +157,20 @@ def road_material():
 def build_road():
     xs=np.arange(-170,XJ+.01,0.5)
     c=roadC(xs); z=roadZ(xs)+0.02; cs=roadCs(xs)
+    rr=np.random.RandomState(8)
     nx=-cs/np.sqrt(1+cs*cs); ny=1/np.sqrt(1+cs*cs)
     lat=np.array([-3.55,-2.4,-1.2,0,1.2,2.4,3.55])
     VX=xs[:,None]+nx[:,None]*lat[None,:]
-    V=np.stack([VX, c[:,None]+ny[:,None]*lat[None,:], roadZ(VX)+0.02],-1).reshape(-1,3)
+    VZ=roadZ(VX)+0.02
+    VX[-1]+=rr.uniform(0.15,1.0,len(lat)); VZ[-1]=VZ[-2]+ (VZ[-2]-VZ[-3])*1.0-rr.uniform(0.02,0.10,len(lat)); VX[-2]+=rr.uniform(-0.1,0.25,len(lat))
+    V=np.stack([VX, c[:,None]+ny[:,None]*lat[None,:], VZ],-1).reshape(-1,3)
     s=np.array([arclen(x) for x in xs])
     UV=np.stack([np.repeat(s[:,None],7,1),np.repeat(lat[None,:],len(xs),0)],-1).reshape(-1,2)
     ob=mesh_obj('Road',V,grid_faces(len(xs),7),uvs=UV); ob.data.materials.append(road_material()); return ob
 
 def build_guardrail():
     """weathered timber posts carrying three steel cables: keeps the sea visible behind the rider"""
-    mm,g,p=new_mat('Cable'); setp(g,p,color=(0.55,0.56,0.57,1),metal=1.0,rough=0.35)
+    mm,g,p=new_mat('Cable'); setp(g,p,color=(0.22,0.22,0.23,1),metal=1.0,rough=0.6)
     mw,g2,p2=new_mat('Timber'); pos=g2.N('ShaderNodeNewGeometry').outputs['Position']
     gr=g2.noise(g2.N('ShaderNodeMapping',{'Vector':pos,'Scale':(30,30,2.5)}).outputs[0],1.0,detail=5,rough=.7,dist=.6); n=g2.noise(pos,2.0,detail=3)
     setp(g2,p2,color=g2.mix(gr,srgb(0x4a3d32),srgb(0x8c7a66)),rough=0.85,normal=g2.bump(gr,strength=0.8,dist=0.01))
@@ -176,7 +180,7 @@ def build_guardrail():
     parts=[]
     for h in (0.30,0.48,0.66):
         sag=0.02*np.cos(np.arange(len(xs))*2*np.pi/6.0)
-        parts.append(tube_mesh(np.stack([cx,cy,cz+h+sag],1),0.007,seg=5,cap=False))
+        parts.append(tube_mesh(np.stack([cx,cy,cz+h+sag],1),0.0042,seg=5,cap=False))
     V,F=join(parts); cab=mesh_obj('Cables',V,F); cab.data.materials.append(mm)
     rng=np.random.RandomState(4); parts=[]
     for i in range(0,len(xs),6):

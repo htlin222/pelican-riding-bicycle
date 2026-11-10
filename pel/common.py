@@ -42,7 +42,8 @@ def roadC(x):
 def roadZs(x): return (roadZ(x+.05)-roadZ(x-.05))/.1
 def roadCs(x): return (roadC(x+.05)-roadC(x-.05))/.1
 
-STACKS=[(398,-70,27,14),(440,-104,19,10),(300,-88,22,11),(150,-96,31,13),(476,-52,12,8),(60,-78,14,9),(540,-80,16,9),(232,-120,11,7)]
+# (x, y, height, radius, stretch, angle, flatness)
+STACKS=[(350,-98,24,13,1.9,0.5,0.75),(300,-70,15,9,1.0,0.0,0.15),(150,-96,30,14,1.5,-0.7,0.5),(60,-78,13,10,2.4,0.2,0.9),(232,-122,10,8,1.2,1.0,0.3),(105,-128,19,9,1.0,0,0.0)]
 def terrainH(x,y):
     x=np.asarray(x,dtype=float); y=np.asarray(y,dtype=float)
     rz=roadZ(x); d=y-roadC(x)
@@ -67,14 +68,15 @@ def terrainH(x,y):
     endn=-np.abs(fbm(x*.08,y*.08,4,19)-.5)*6*f*(1-f)*4
     h=h+(floor-h)*f+endn
     # sea stacks
-    for (sx,sy,sh,sr) in STACKS:
-        r=np.sqrt((x-sx)**2+(y-sy)**2)
+    for (sx,sy,sh,sr,stc,ang,flat) in STACKS:
         ax=x+5*(fbm(x*.11+sx,y*.11,3,81)-.5); ay=y+5*(fbm(x*.11,y*.11+sy,3,83)-.5)
-        r=np.sqrt((ax-sx)**2+(ay-sy)**2)
-        re=r/(sr*(0.55+0.9*fbm(ax*.07+sx,ay*.07,4,29)))
-        prof=(1-smooth(0.22,1.0,re))**0.55
-        top=0.5+0.5*ridge(ax*.08+sy,ay*.08,4,23)+0.16*fbm(x*.45,y*.45,3,31)-0.10*np.floor(fbm(ax*.2,ay*.2,2,33)*4)/4
-        h=np.maximum(h, -7+(sh+7)*prof*top)
+        dx=ax-sx; dy=ay-sy; ca=np.cos(ang); sa=np.sin(ang)
+        u=(dx*ca+dy*sa)/stc; v=(-dx*sa+dy*ca)
+        r=np.sqrt(u*u+v*v)
+        re=r/(sr*(0.6+0.8*fbm(ax*.07+sx,ay*.07,4,29)))
+        prof=(1-smooth(0.25,1.0,re))**(0.55-0.4*flat)
+        top=(0.5+0.5*flat)+(0.5-0.45*flat)*ridge(ax*.08+sy,ay*.08,4,23)+0.14*fbm(x*.45,y*.45,3,31)-0.10*np.floor(fbm(ax*.2,ay*.2,2,33)*4)/4+0.25*(u/sr)*(1-flat)
+        h=np.maximum(h, -7+(sh+7)*prof*np.clip(top,0.1,1.4))
     return h
 
 # ---- timeline ----

@@ -20,7 +20,8 @@ def grass_mat():
     oi=g.N('ShaderNodeObjectInfo'); rnd=oi.outputs['Random']
     pos=g.N('ShaderNodeNewGeometry').outputs['Position']
     patch=g.noise(pos,0.09,detail=3)
-    base=g.mix(patch,srgb(0x3c4a18),srgb(0x6b6a26)); tip=g.mix(patch,srgb(0x9c8a3e),srgb(0xc9ac5c))
+    patch2=g.maprange(g.noise(pos,0.03,detail=4),0.35,0.65,smooth=True)
+    base=g.mix(patch,srgb(0x34481a),srgb(0x6b6a26)); tip=g.mix(patch2,srgb(0x6f8a3a),srgb(0xcfae5c))
     c=g.mix(g.math('POWER',v,1.4),base,tip)
     c=g.mix(g.math('MULTIPLY',rnd,0.3),c,srgb(0x77722c))
     setp(g,p,color=c,rough=0.55,spec=0.3)
@@ -78,7 +79,7 @@ def rock_mat():
     m,g,p=new_mat('Rock'); pos=g.N('ShaderNodeNewGeometry').outputs['Position']
     n=g.noise(pos,1.2,detail=6,rough=.65,dist=.5); v=g.N('ShaderNodeTexVoronoi',{'Vector':pos,'Scale':3.0,'Detail':2.0},feature='F1').outputs['Distance']
     lich=g.maprange(g.noise(pos,2.6,detail=4),0.58,0.68,smooth=True)
-    c=g.ramp(n,[(0.25,srgb(0x5a5048)),(0.5,srgb(0x857868)),(0.75,srgb(0xa89a84))]); c=g.mix(g.math('MULTIPLY',lich,0.6),c,srgb(0xa9a25a))
+    c=g.ramp(n,[(0.25,srgb(0x6e6050)),(0.5,srgb(0x978671)),(0.75,srgb(0xb8a78c))]); c=g.mix(g.math('MULTIPLY',lich,0.6),c,srgb(0xa9a25a))
     setp(g,p,color=c,rough=0.85,normal=g.bump(g.math('ADD',g.math('MULTIPLY',v,0.5),n),strength=0.9,dist=0.08)); return m
 def leaf_mat(name,c1,c2):
     m,g,p=new_mat(name); pos=g.N('ShaderNodeNewGeometry').outputs['Position']
